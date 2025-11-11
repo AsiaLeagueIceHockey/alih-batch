@@ -1,0 +1,33 @@
+name: Manual Game Sheet Scraper
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_no:
+        description: '스크랩할 Game No.'
+        required: true
+        type: string
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install axios cheerio @supabase/supabase-js iconv-lite
+
+      - name: Run Scraper for specific game
+        run: node ./scrapeSingleGame.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # workflow_dispatch의 입력을 환경 변수로 전달
+          GAME_NO_TO_SCRAPE: ${{ github.event.inputs.game_no }}
