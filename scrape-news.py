@@ -3,7 +3,15 @@ import feedparser
 import datetime
 from supabase import create_client, Client
 
-# ... (RSS_FEEDS 리스트는 동일) ...
+# <--- [수정됨] 이 부분이 빠져있었습니다! ---
+# --- 0. RSS 피드 목록 ---
+RSS_FEEDS = [
+    {'url': 'https://news.google.com/rss/search?q=%EC%95%84%EC%8B%9C%EC%95%84%EB%A6%AC%EA%B7%B8+%EC%95%84%EC%9D%B4%EC%8A%A4%ED%95%98%ED%82%A4&hl=ko&gl=KR&ceid=KR:ko', 'language': 'ko'},
+    {'url': 'https://news.google.com/rss/search?q=Asia+League+Ice+Hockey&hl=en-US&gl=US&ceid=US:en', 'language': 'en'},
+    {'url': 'https://news.google.com/rss/search?q=%E3%82%A2%E3%82%B8%E3%82%A2%E3%83%AA%E3%83%BC%E3%82%B0%E3%82%A2%E3%82%A4%EC%8A%A4%ED%95%98%ED%82%A4&hl=ja&gl=JP&ceid=JP:ja', 'language': 'ja'}
+]
+# -------------------------------------------
+
 
 # --- 1. Supabase 클라이언트 초기화 ---
 def init_supabase():
@@ -50,7 +58,7 @@ def main():
 
     articles_to_insert = []
     
-    for feed in RSS_FEEDS:
+    for feed in RSS_FEEDS: # <--- 여기서 'RSS_FEEDS'를 찾지 못해 오류 발생
         print(f"Parsing feed for language: {feed['language']}...")
         parsed_feed = feedparser.parse(feed['url'])
         
