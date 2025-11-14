@@ -232,29 +232,43 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
 
 // --- 메인 실행 함수 ---
 async function main() {
-  const gameNoToScrape = process.env.GAME_NO_TO_SCRAPE;
+  console.log(`[${new Date().toISOString()}] Starting live polling job...`);
 
-  if (!gameNoToScrape) {
-    console.error('Error: GAME_NO_TO_SCRAPE environment variable is not set.');
-    process.exit(1); // 오류로 종료
-  }
-  
+  // 1. "진행중"인 경기를 찾기 위한 시간 정의
+  const now = new Date();
+  // 6시간 전 시간 (게임 종료 시점)
+  const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+
   try {
-    // 1. 득점/패널티에 팀 ID를 넣기 위해 alih_schedule에서 팀 정보를 가져옵니다.
-    const { data: scheduleData, error: scheduleError } = await supabase
+    // 2. alih_schedule에서 "진행중"인 경기만 쿼리
+    // - 6시간 전 이후에 시작했고 (아직 안 끝났고)
+    // - 현재 시간 이전에 시작한 (이미 시작한)
+    const { data: ongoingGames, error: scheduleError } = await supabase
       .from('alih_schedule')
-      .select('home_alih_team_id, away_alih_team_id')
-      .eq('game_no', gameNoToScrape)
-      .single(); 
+      .select('game_no, home_alih_team_id, away_alih_team_id')
+      .gt('match_at', sixHoursAgo.toISOString()) // "6시간 전"보다 늦게 시작함
+      .lt('match_at', now.toISOString());      // "지금"보다 일찍 시작함
 
-    if (scheduleError || !scheduleData) {
-      throw new Error(`Failed to find schedule info for game_no ${gameNoToScrape}: ${scheduleError?.message}`);
+    if (scheduleError) {
+      throw new Error(`Failed to fetch schedules: ${scheduleError.message}`);
     }
 
-    // 2. 스크래핑 및 DB 저장 실행
-    await scrapeGame(gameNoToScrape, scheduleData);
+    if (!ongoingGames || ongoingGames.length === 0) {
+      console.log('No ongoing games found. Exiting.');
+      process.exit(0); // 정상 종료
+    }
+
+    console.log(`Found ${ongoingGames.length} ongoing games to scrape: [${ongoingGames.map(g => g.game_no).join(', ')}]`);
+
+    // 3. 찾은 모든 경기에 대해 병렬로 스크래핑 실행
+    // (Promise.all을 사용해 동시에 여러 경기를 빠르게 처리)
+    const scrapePromises = ongoingGames.map(game => 
+      scrapeGame(game.game_no, game)
+    );
     
-    console.log('Manual job finished.');
+    await Promise.all(scrapePromises);
+    
+    console.log('Live polling job finished successfully.');
     process.exit(0); // 성공
 
   } catch (error) {

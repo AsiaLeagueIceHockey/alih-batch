@@ -1,12 +1,10 @@
-name: Manual Game Sheet Scraper
+name: Live Game Sheet Scraper (5-min poll)
 
 on:
+  schedule:
+    - cron: '*/5 * * * *'
+  
   workflow_dispatch:
-    inputs:
-      game_no:
-        description: '스크랩할 Game No.'
-        required: true
-        type: string
 
 jobs:
   scrape:
@@ -24,10 +22,8 @@ jobs:
       - name: Install dependencies
         run: npm install axios cheerio @supabase/supabase-js iconv-lite
 
-      - name: Run Scraper for specific game
-        run: node ./scrapeSingleGame.js
+      - name: Run Scraper for Ongoing Games
+        run: node ./scrapeSingleGame.js 
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          # workflow_dispatch의 입력을 환경 변수로 전달
-          GAME_NO_TO_SCRAPE: ${{ github.event.inputs.game_no }}
