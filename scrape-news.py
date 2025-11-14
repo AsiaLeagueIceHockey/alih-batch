@@ -2,7 +2,7 @@ import os
 import feedparser
 import datetime
 from supabase import create_client, Client
-from googletrans import Translator # <--- [추가] 번역 라이브러리
+from deep_translator import GoogleTranslator
 
 # --- 0. RSS 피드 목록 ---
 # 사용자가 확정한 리스트
@@ -20,8 +20,7 @@ def init_supabase():
         print("Error: SUPABASE_URL or SUPABASE_SERVICE_KEY is not set.") 
         exit(1)
     return create_client(url, key)
-
-# --- 2. DB에서 가장 최신 뉴스의 'published_at' 가져오기 ---
+# --- 2. DB에서 가장 최신 뉴스의 'published_at' 가져오기 (동일) ---
 def get_latest_publish_time(supabase: Client) -> datetime.datetime:
     try:
         response = supabase.table('alih_news') \
@@ -41,12 +40,13 @@ def get_latest_publish_time(supabase: Client) -> datetime.datetime:
         print(f"Error fetching latest publish time: {e}")
         return datetime.datetime.fromisoformat('2025-08-15T00:00:00+00:00')
 
-# --- 3. 메인 파싱 및 저장 로직 (번역 추가) ---
+# --- 3. 메인 파싱 및 저장 로직 (번역기 수정) ---
 def main():
     supabase = init_supabase()
     
-    # [추가] 번역기 인스턴스 생성
-    translator = Translator()
+    # [수정됨] 번역기 인스턴스 생성 (deep-translator 방식)
+    # source='auto' (자동 감지), target='ko' (한국어)
+    translator = GoogleTranslator(source='auto', target='ko')
     
     latest_time = get_latest_publish_time(supabase)
     print(f"Fetching news published after: {latest_time}")
@@ -67,23 +67,18 @@ def main():
                     
                     original_title = entry.title
                     lang = feed['language']
-                    translated_title = original_title # 기본값은 원본 제목
+                    translated_title = original_title
                     
-                    # --- [수정됨] 번역 로직 ---
-                    # 언어가 'ko'가 아닐 경우에만 번역 시도
+                    # [수정됨] 번역 로직
                     if lang != 'ko':
                         try:
                             print(f"Translating from {lang}: {original_title}")
-                            # dest='ko' (한국어)로 번역
-                            translation = translator.translate(original_title, dest='ko')
-                            translated_title = translation.text
+                            # [수정됨] deep-translator의 번역 호출 방식
+                            translated_title = translator.translate(original_title)
                         except Exception as e:
                             print(f"Translation failed for '{original_title}', using original: {e}")
-                            translated_title = original_title # 실패 시 원본 제목 사용
+                            translated_title = original_title
                     
-                    # --- [요청사항 반영] ---
-                    # title: 번역된 제목 (실패 시 원본)
-                    # summary: "원본값" (즉, 원본 제목)
                     row = {
                         'title': translated_title,
                         'summary': original_title, # summary에는 항상 원본 제목
@@ -97,7 +92,7 @@ def main():
             except Exception as e:
                 print(f"Error processing entry {entry.link}: {e}")
 
-    # 5. 필터링된 새 뉴스만 DB에 삽입 (이전과 동일)
+    # 5. 필터링된 새 뉴스만 DB에 삽입 (동일)
     if articles_to_insert:
         print(f"Found {len(articles_to_insert)} new articles. Inserting to Supabase...")
         try:
