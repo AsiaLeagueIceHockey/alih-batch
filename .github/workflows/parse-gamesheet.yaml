@@ -2,7 +2,7 @@ name: Live Game Sheet Scraper (5-min poll)
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/20 * * * *'
   
   workflow_dispatch:
 
