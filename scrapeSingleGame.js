@@ -32,6 +32,26 @@ function getPeriodFromTime(timeStr) {
   return 4; // OVT
 }
 
+/**
+ * [신규] 최종 스코어 문자열을 파싱하는 함수
+ * "1 : 0" -> { home_score: 1, away_score: 0 }
+ * 스코어가 없거나 파싱 실패 시 null 반환
+ */
+function parseFinalScore(scoreStr) {
+  if (!scoreStr || !scoreStr.includes(':')) {
+    return { home_score: null, away_score: null };
+  }
+  const parts = scoreStr.split(':');
+  const home_score = parseInt(parts[0].trim(), 10);
+  const away_score = parseInt(parts[1].trim(), 10);
+
+  if (isNaN(home_score) || isNaN(away_score)) {
+    return { home_score: null, away_score: null };
+  }
+  return { home_score, away_score };
+}
+
+
 function parseRoster($, tableElement) {
   const roster = [];
   $(tableElement).find('tr').slice(3).each((i, row) => {
@@ -217,35 +237,39 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
     penalties: penalties
   };
 
-  // 5. Supabase에 Upsert (Insert or Update)
+  // 5. Supabase 'alih_game_details'에 Upsert (Insert or Update)
   const { data, error: upsertError } = await supabase
     .from('alih_game_details')
     .upsert(detailData, { onConflict: 'game_no' }); // game_no가 충돌하면 덮어쓰기
 
   if (upsertError) {
-    throw new Error(`DB Upsert Error: ${upsertError.message}`);
+    throw new Error(`DB Upsert Error (alih_game_details): ${upsertError.message}`);
   }
 
-  console.log(`[SUCCESS] Scraped and saved Game No: ${gameNoToScrape}`);
-  return data;
+  console.log(`[SUCCESS] Scraped and saved Game No: ${gameNoToScrape} (details)`);
+  
+  // --- [신규] alih_schedule에 스코어 업데이트 ---
+  // 6. 'game_summary.total.score'에서 최종 스코어 파싱
+  const { home_score, away_score } = parseFinalScore(game_summary.total.score);
+  
+  // 7. 파싱된 스코어를 `scrapeGame` 함수의 반환값으로 전달
+  return { home_score, away_score };
 }
 
-// --- 메인 실행 함수 ---
+// --- 메인 실행 함수 (수정됨) ---
 async function main() {
   console.log(`[${new Date().toISOString()}] Starting live polling job...`);
 
   // 1. "진행중"인 경기를 찾기 위한 시간 정의
   const now = new Date();
-  // 6시간 전 시간 (게임 종료 시점)
   const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
   try {
     // 2. alih_schedule에서 "진행중"인 경기만 쿼리
-    // - 6시간 전 이후에 시작했고 (아직 안 끝났고)
-    // - 현재 시간 이전에 시작한 (이미 시작한)
+    //    [수정] 'id'(PK)를 반드시 포함해야 업데이트 가능
     const { data: ongoingGames, error: scheduleError } = await supabase
       .from('alih_schedule')
-      .select('game_no, home_alih_team_id, away_alih_team_id')
+      .select('id, game_no, home_alih_team_id, away_alih_team_id')
       .gt('match_at', sixHoursAgo.toISOString()) // "6시간 전"보다 늦게 시작함
       .lt('match_at', now.toISOString());      // "지금"보다 일찍 시작함
 
@@ -258,15 +282,40 @@ async function main() {
       process.exit(0); // 정상 종료
     }
 
-    console.log(`Found ${ongoingGames.length} ongoing games to scrape: [${ongoingGames.map(g => g.game_no).join(', ')}]`);
+    console.log(`Found ${ongoingGames.length} games to scrape: [${ongoingGames.map(g => g.game_no).join(', ')}]`);
 
-    // 3. 찾은 모든 경기에 대해 병렬로 스크래핑 실행
-    // (Promise.all을 사용해 동시에 여러 경기를 빠르게 처리)
-    const scrapePromises = ongoingGames.map(game => 
-      scrapeGame(game.game_no, game)
-    );
-    
-    await Promise.all(scrapePromises);
+    // 3. 찾은 모든 경기에 대해 *순차적으로* 스크래핑 실행
+    //    (병렬 대신 순차 처리하여 Supabase 부하 감소 및 안정성 확보)
+    for (const game of ongoingGames) {
+      try {
+        // [수정] scrapeGame이 스코어를 반환함
+        const { home_score, away_score } = await scrapeGame(game.game_no, game);
+
+        // 4. [신규] alih_schedule 테이블에 스코어 업데이트
+        //    (스코어가 유효하게 파싱된 경우에만)
+        if (home_score !== null && away_score !== null) {
+          const { error: updateError } = await supabase
+            .from('alih_schedule')
+            .update({ 
+              home_alih_team_score: home_score,
+              away_alih_team_score: away_score 
+            })
+            .eq('id', game.id); // game_no 대신 PK인 'id'로 업데이트 (더 빠름)
+
+          if (updateError) {
+            console.error(`[WARN] Failed to update score for Game No: ${game.game_no} - ${updateError.message}`);
+          } else {
+            console.log(`[SUCCESS] Updated score for Game No: ${game.game_no} ( ${home_score} : ${away_score} )`);
+          }
+        } else {
+          console.log(`[INFO] No final score found for Game No: ${game.game_no}. Skipping score update.`);
+        }
+
+      } catch (scrapeError) {
+        // scrapeGame 내부에서 오류가 나도 다음 게임으로 넘어가도록 처리
+        console.error(`[FAIL] Scraping failed for Game No: ${game.game_no} - ${scrapeError.message}`);
+      }
+    }
     
     console.log('Live polling job finished successfully.');
     process.exit(0); // 성공
