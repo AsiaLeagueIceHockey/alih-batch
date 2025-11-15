@@ -1,4 +1,4 @@
-name: Live Game Sheet Scraper (5-min poll)
+name: Live Game Sheet Scraper (20-min poll)
 
 on:
   schedule:
