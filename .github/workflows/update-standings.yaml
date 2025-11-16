@@ -33,4 +33,4 @@ jobs:
           # GitHub Secrets에 저장된 값을 환경 변수로 주입
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python scrape_standings.py
+        run: python scrape-standings.py
