@@ -27,4 +27,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # 쓰기 권한 필요
-        run: python scrape_player_stats.py
+        run: python scrape-stat.py
