@@ -17,10 +17,8 @@ def get_team_code_map():
     DB에서 team_code(예: 'HLA')를 키로, id를 값으로 하는 맵을 가져옵니다.
     """
     try:
-        # alih_teams 테이블에 team_code 컬럼이 있어야 합니다.
         response = supabase.table('alih_teams').select('id, team_code').execute()
         if response.data:
-            # 공백 제거 등 전처리
             return {team['team_code'].strip(): team['id'] for team in response.data if team['team_code']}
         return {}
     except Exception as e:
@@ -32,18 +30,11 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
     특정 헤더(header_text)를 가진 테이블을 찾아 players_dict에 데이터를 병합합니다.
     data_type: 'goals', 'assists', 'points' 중 하나
     """
-    # 1. 헤더 찾기 (예: "Goal Ranking")
-    # HTML 구조상 <th>Goal Ranking </th> 처럼 되어 있음
     header_th = soup.find('th', string=lambda t: t and header_text in t)
     if not header_th:
         print(f"Warning: Header '{header_text}' not found.")
         return
 
-    # 2. 해당 헤더가 있는 큰 테이블의 구조를 따라가서 데이터 테이블 찾기
-    # 구조: <tr><th>Goal Ranking</th>...</tr> <tr><td><table>...</table></td>...</tr>
-    # 헤더의 부모 tr의 다음 형제 tr을 찾고, 그 안에서 인덱스에 맞는 td 안의 table을 찾아야 함
-    
-    # 간단하게 접근: 해당 헤더 텍스트가 포함된 th의 인덱스를 찾음
     header_row = header_th.find_parent('tr')
     headers = header_row.find_all('th')
     target_index = headers.index(header_th)
@@ -58,13 +49,10 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
     target_table = target_td.find('table')
     
     if not target_table:
-        print(f"Error: Inner table not found for {header_text}")
         return
 
-    # 3. 행 파싱
     rows = target_table.find_all('tr')
     for row in rows:
-        # 헤더 행(bgcolor="#CCCCCC") 스킵
         if row.get('bgcolor') == '#CCCCCC' or row.find('th'):
             continue
             
@@ -79,13 +67,11 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
             team_code = cols[3].text.strip()
             value = int(cols[4].text.strip()) # G, A, or P
 
-            # DB team_id 찾기
             team_id = team_code_map.get(team_code)
             if not team_id:
                 print(f"Skipping {name}: Unknown team code '{team_code}'")
                 continue
 
-            # 고유 키: (team_id, player_name)
             player_key = (team_id, name)
 
             if player_key not in players_dict:
@@ -101,7 +87,6 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
                     "points_rank": None
                 }
             
-            # 데이터 병합
             if data_type == 'goals':
                 players_dict[player_key]['goals'] = value
                 players_dict[player_key]['goals_rank'] = rank
@@ -112,8 +97,8 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
                 players_dict[player_key]['points'] = value
                 players_dict[player_key]['points_rank'] = rank
 
-        except ValueError as ve:
-            continue # 데이터 포맷 에러 시 해당 행 무시
+        except ValueError:
+            continue 
         except Exception as e:
             print(f"Error parsing row in {header_text}: {e}")
 
@@ -122,7 +107,7 @@ def scrape_and_upsert_player_stats():
     
     try:
         response = requests.get(URL)
-        response.encoding = 'shift_jis' # 필수 인코딩 설정
+        response.encoding = 'shift_jis' 
         html = response.text
     except Exception as e:
         print(f"Network Error: {e}")
@@ -135,11 +120,8 @@ def scrape_and_upsert_player_stats():
         print("Failed to load team codes from DB.")
         return
 
-    # 모든 데이터를 모을 딕셔너리
-    # Key: (team_id, player_name), Value: Data Dict
     players_dict = {}
 
-    # 3개의 랭킹 테이블 파싱 및 병합
     print("Parsing Goal Ranking...")
     parse_rank_table(soup, "Goal Ranking", "goals", players_dict, team_code_map)
     
@@ -150,18 +132,35 @@ def scrape_and_upsert_player_stats():
     parse_rank_table(soup, "Points Ranking", "points", players_dict, team_code_map)
 
     # ---------------------------------------------------------
-    # [추가된 부분] 데이터 보정 로직
-    # 포인트 랭킹 표에 없는 선수들의 points를 (goals + assists)로 보정합니다.
-    # 포인트 랭킹 표에 있는 경우(points > 0)는 그대로 두거나, 더 큰 값을 채택합니다.
+    # [핵심 수정] 데이터 상호 보정 로직 (Cross-Validation)
+    # Goals + Assists = Points 공식을 이용하여 누락된 데이터를 채웁니다.
     # ---------------------------------------------------------
-    print("Calculating missing points (Goals + Assists)...")
+    print("Validating and correcting stats (G + A = P)...")
+    
     for key, data in players_dict.items():
-        calculated_points = data['goals'] + data['assists']
-        
-        # 기존 파싱된 points와 계산된 points 중 큰 값을 사용
-        # (이유: 포인트 랭킹 표에만 있고 골/어시 표에는 잘려서 없는 경우까지 고려)
-        if calculated_points > data['points']:
-            data['points'] = calculated_points
+        g = data['goals']
+        a = data['assists']
+        p = data['points']
+
+        # CASE 1: 포인트 랭킹 데이터가 더 큼 (구성 요소 누락)
+        # 예: G=12, A=0, P=17 -> A 누락 -> A = 17 - 12 = 5
+        if p > (g + a):
+            # 골은 있는데 어시스트가 없는 경우
+            if g > 0 and a == 0:
+                data['assists'] = p - g
+            # 어시스트는 있는데 골이 없는 경우
+            elif a > 0 and g == 0:
+                data['goals'] = p - a
+            
+            # 수정된 값을 다시 반영
+            g = data['goals']
+            a = data['assists']
+
+        # CASE 2: 구성 요소의 합이 포인트보다 큼 (포인트 랭킹 누락/업데이트 지연)
+        # 예: G=0, A=6, P=0 -> P 누락 -> P = 0 + 6 = 6
+        current_sum = g + a
+        if current_sum > p:
+            data['points'] = current_sum
 
     upsert_data = [
         {**data, "updated_at": "now()"} 
@@ -171,7 +170,6 @@ def scrape_and_upsert_player_stats():
     if upsert_data:
         print(f"Upserting {len(upsert_data)} player records...")
         try:
-            # team_id와 player_name이 Unique Constraint여야 함
             result = supabase.table('alih_player_stats').upsert(
                 upsert_data, 
                 on_conflict='team_id, player_name'
