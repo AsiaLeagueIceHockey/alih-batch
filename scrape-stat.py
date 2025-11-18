@@ -49,10 +49,9 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
     target_index = headers.index(header_th)
     
     data_row = header_row.find_next_sibling('tr')
-    data_tds = data_row.find_all('td', recursive=False) # 바로 아래 자식만
+    data_tds = data_row.find_all('td', recursive=False) 
     
     if len(data_tds) <= target_index:
-        print(f"Error: Table structure mismatch for {header_text}")
         return
 
     target_td = data_tds[target_index]
@@ -150,7 +149,20 @@ def scrape_and_upsert_player_stats():
     print("Parsing Points Ranking...")
     parse_rank_table(soup, "Points Ranking", "points", players_dict, team_code_map)
 
-    # 데이터 리스트로 변환
+    # ---------------------------------------------------------
+    # [추가된 부분] 데이터 보정 로직
+    # 포인트 랭킹 표에 없는 선수들의 points를 (goals + assists)로 보정합니다.
+    # 포인트 랭킹 표에 있는 경우(points > 0)는 그대로 두거나, 더 큰 값을 채택합니다.
+    # ---------------------------------------------------------
+    print("Calculating missing points (Goals + Assists)...")
+    for key, data in players_dict.items():
+        calculated_points = data['goals'] + data['assists']
+        
+        # 기존 파싱된 points와 계산된 points 중 큰 값을 사용
+        # (이유: 포인트 랭킹 표에만 있고 골/어시 표에는 잘려서 없는 경우까지 고려)
+        if calculated_points > data['points']:
+            data['points'] = calculated_points
+
     upsert_data = [
         {**data, "updated_at": "now()"} 
         for data in players_dict.values()
