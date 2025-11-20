@@ -7,6 +7,8 @@ on:
 
 jobs:
   scrape:
+    # Playwright는 메모리를 많이 사용하므로, 
+    # GitHub Runner에서 안정적인 실행을 위해 메모리 사용량을 고려해야 합니다.
     runs-on: ubuntu-latest 
 
     steps:
@@ -21,11 +23,16 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install supabase feedparser deep-translator
+          # 💡 requests와 beautifulsoup4 추가
+          pip install supabase feedparser deep-translator playwright requests beautifulsoup4
+
+      # ⭐ 새로 추가된 단계: Playwright 브라우저 설치 ⭐
+      - name: Install Playwright browsers
+        run: |
+          playwright install chromium
 
       - name: Run news scraper
         env:
-          # [수정됨] GitHub Secret과 환경 변수 이름을 'SUPABASE_SERVICE_KEY'로 통일
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |

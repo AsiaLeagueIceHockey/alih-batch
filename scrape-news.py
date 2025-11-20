@@ -4,6 +4,10 @@ import datetime
 from supabase import create_client, Client
 from deep_translator import GoogleTranslator
 
+# 💡 새로 추가: 웹페이지 내용 가져오기 및 파싱
+import requests
+from bs4 import BeautifulSoup
+
 # --- 0. RSS 피드 목록 ---
 # 사용자가 확정한 리스트
 RSS_FEEDS = [
@@ -21,6 +25,7 @@ def init_supabase():
         print("Error: SUPABASE_URL or SUPABASE_SERVICE_KEY is not set.") 
         exit(1)
     return create_client(url, key)
+
 # --- 2. DB에서 가장 최신 뉴스의 'published_at' 가져오기 (동일) ---
 def get_latest_publish_time(supabase: Client) -> datetime.datetime:
     try:
@@ -41,14 +46,76 @@ def get_latest_publish_time(supabase: Client) -> datetime.datetime:
         print(f"Error fetching latest publish time: {e}")
         return datetime.datetime.fromisoformat('2025-08-15T00:00:00+00:00')
 
-# --- 3. 메인 파싱 및 저장 로직 (번역기 수정) ---
+# --- 3. URL 추출 함수 (Playwright 사용) ---
+def get_final_url_sync(google_news_url: str) -> str:
+    """
+    Playwright를 사용하여 Google News URL에 접근하고, 
+    JavaScript 기반 리다이렉트를 따라 최종 도착 URL을 동기적으로 반환합니다.
+    """
+    # 🚨 주의: GitHub Actions 환경에서는 Playwright 설치가 선행되어야 합니다.
+    try:
+        with sync_playwright() as p:
+            # 헤드리스 모드로 Chromium 실행
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+
+            # URL로 이동 및 네트워크 활동이 잠잠해질 때까지 대기
+            page.goto(google_news_url, wait_until='networkidle', timeout=30000)
+            
+            final_url = page.url
+            browser.close()
+            
+            # 리다이렉션이 실패하고 Google News URL이 남아있다면 None 반환
+            if 'news.google.com/rss' in final_url:
+                return google_news_url # 실패 시 원래 링크 반환
+                
+            return final_url
+            
+    except Exception as e:
+        print(f"Playwright URL 추출 실패 for {google_news_url}: {e}")
+        return google_news_url # 오류 발생 시 원래 링크 반환
+
+# --- 4. 웹페이지에서 텍스트 추출 함수 ---
+def extract_plain_text(url: str) -> str:
+    """
+    주어진 URL에서 HTML을 가져와서 불필요한 태그를 제거하고 순수 텍스트만 반환합니다.
+    """
+    try:
+        # User-Agent 설정 (curl에서 사용했던 것과 동일하게 설정하여 브라우저처럼 보이게 합니다)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        }
+        
+        # requests를 사용하여 페이지 내용을 가져옵니다. (리다이렉트 자동 처리)
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status() # HTTP 오류 발생 시 예외 발생
+        
+        # BeautifulSoup을 사용하여 HTML 파싱
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 스크립트, 스타일, 주석 등 불필요한 요소 제거
+        for script_or_style in soup(['script', 'style', 'noscript', 'meta', 'link', 'header', 'footer', 'nav', 'form']):
+            script_or_style.decompose()
+            
+        # <body> 태그 내의 텍스트만 추출하고, 여러 개의 공백/줄바꿈을 하나의 공백으로 치환
+        text = soup.body.get_text(' ', strip=True)
+        
+        # 텍스트가 너무 길면 잘라내서 로깅 부담 줄이기 (예: 최대 2000자)
+        MAX_TEXT_LENGTH = 2000
+        if len(text) > MAX_TEXT_LENGTH:
+             return text[:MAX_TEXT_LENGTH] + "..." # 일부만 반환하고 줄임표 추가
+        
+        return text
+
+    except requests.exceptions.RequestException as e:
+        return f"[Error fetching content]: {e}"
+    except Exception as e:
+        return f"[Error parsing content]: {e}"
+
+# --- 5. 메인 파싱 및 저장 로직 (수정) ---
 def main():
     supabase = init_supabase()
-    
-    # [수정됨] 번역기 인스턴스 생성 (deep-translator 방식)
-    # source='auto' (자동 감지), target='ko' (한국어)
     translator = GoogleTranslator(source='auto', target='ko')
-    
     latest_time = get_latest_publish_time(supabase)
     print(f"Fetching news published after: {latest_time}")
 
@@ -68,13 +135,36 @@ def main():
                     
                     original_title = entry.title
                     lang = feed['language']
+                    
+                    # 💡 URL 추출: entry.link (Google News RSS URL)을 사용
+                    # ----------------------------------------------------
+                    google_link = entry.link
+                    # 1. 최종 원본 URL을 추출합니다.
+                    origin_url = get_final_url_sync(google_link)
+                    
+                    if origin_url == google_link:
+                        print(f"Warning: Failed to extract final URL for: {google_link}")
+                    else:
+                        print(f"Success: Extracted URL: {origin_url}")
+                    # ----------------------------------------------------
+                    
+                    # 💡 새로 추가된 부분: 원본 URL에서 텍스트 추출
+                    # ----------------------------------------------------
+                    article_content_text = extract_plain_text(origin_url)
+                    
+                    # 💡 추출된 텍스트 로깅
+                    print("\n--- Extracted Article Text (First 2000 chars) ---")
+                    print(article_content_text)
+                    print("---------------------------------------------------\n")
+                    
+                    # ----------------------------------------------------
                     translated_title = original_title
                     
-                    # [수정됨] 번역 로직
+                    # (번역 로직 생략 - 기존과 동일)
                     if lang != 'ko':
                         try:
+                            # ... (번역 코드) ...
                             print(f"Translating from {lang}: {original_title}")
-                            # [수정됨] deep-translator의 번역 호출 방식
                             translated_title = translator.translate(original_title)
                         except Exception as e:
                             print(f"Translation failed for '{original_title}', using original: {e}")
@@ -83,7 +173,7 @@ def main():
                     row = {
                         'title': translated_title,
                         'summary': original_title, # summary에는 항상 원본 제목
-                        'origin_url': entry.link,
+                        'origin_url': origin_url,  # 💡 수정: 추출된 최종 URL 사용
                         'language': lang, 
                         'published_at': entry_time_dt.isoformat(), 
                         'created_at': created_at_dt.isoformat()   
