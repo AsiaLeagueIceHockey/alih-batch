@@ -8,6 +8,7 @@ from deep_translator import GoogleTranslator
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+from google import genai
 
 # --- 0. RSS 피드 목록 ---
 # 사용자가 확정한 리스트
@@ -113,6 +114,39 @@ def extract_plain_text(url: str) -> str:
     except Exception as e:
         return f"[Error parsing content]: {e}"
 
+# --- 4.5 Gemini 요약 함수 ---
+def get_ai_summary(text: str) -> str:
+    """
+    Gemini API를 사용하여 텍스트를 한국어로 80자 이내로 요약합니다.
+    """
+    # The client gets the API key from the environment variable `GEMINI_API_KEY`.
+    # api_key 체크는 client 내부에서 처리되거나 환경변수 없을 시 에러 발생 가능하므로
+    # 안전하게 환경변수 확인 후 진행
+    if not os.environ.get("GEMINI_API_KEY"):
+        print("Warning: GEMINI_API_KEY is not set. Skipping summary.")
+        return ""
+    
+    try:
+        client = genai.Client()
+        
+        # 입력 텍스트가 너무 길면 앞부분만 사용 (비용/속도 최적화)
+        input_text = text[:4000] if len(text) > 4000 else text
+        
+        prompt = (
+            "다음 뉴스 기사를 한국어로 읽기 쉽게 80자 이내로 요약해줘. "
+            "기계적인 번역투보다는 자연스러운 한국어 뉴스 헤드라인이나 요약문처럼 작성해줘. "
+            "결과는 요약된 텍스트만 출력해:\n\n"
+            f"{input_text}"
+        )
+        
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=prompt
+        )
+        return response.text.strip()
+    except Exception as e:
+        print(f"Gemini summary failed: {e}")
+        return ""
+
 # --- 5. 메인 파싱 및 저장 로직 (수정) ---
 def main():
     supabase = init_supabase()
@@ -159,6 +193,19 @@ def main():
                     print("---------------------------------------------------\n")
                     
                     # ----------------------------------------------------
+                    
+                    # 💡 Gemini를 이용한 요약 (내용이 충분히 있을 때만)
+                    summary_text = ""
+                    if article_content_text and len(article_content_text) > 100:
+                        print("Summarizing article with Gemini...")
+                        summary_text = get_ai_summary(article_content_text)
+                        if summary_text:
+                            print(f"Summary: {summary_text}")
+                    
+                    # 요약 실패하거나 내용이 없으면 원본 제목 사용
+                    if not summary_text:
+                        summary_text = original_title
+
                     translated_title = original_title
                     
                     # (번역 로직 생략 - 기존과 동일)
@@ -173,7 +220,7 @@ def main():
                     
                     row = {
                         'title': translated_title,
-                        'summary': original_title, # summary에는 항상 원본 제목
+                        'summary': summary_text, # 💡 수정: AI 요약본 사용
                         'origin_url': origin_url,  # 💡 수정: 추출된 최종 URL 사용
                         'language': lang, 
                         'published_at': entry_time_dt.isoformat(), 

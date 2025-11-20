@@ -23,8 +23,8 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          # 💡 requests와 beautifulsoup4 추가
-          pip install supabase feedparser deep-translator playwright requests beautifulsoup4
+          # 💡 requests와 beautifulsoup4, google-genai 추가
+          pip install supabase feedparser deep-translator playwright requests beautifulsoup4 google-genai
 
       # ⭐ 새로 추가된 단계: Playwright 브라우저 설치 ⭐
       - name: Install Playwright browsers
@@ -35,5 +35,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python scrape-news.py
