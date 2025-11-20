@@ -7,6 +7,7 @@ from deep_translator import GoogleTranslator
 # 💡 새로 추가: 웹페이지 내용 가져오기 및 파싱
 import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 # --- 0. RSS 피드 목록 ---
 # 사용자가 확정한 리스트
