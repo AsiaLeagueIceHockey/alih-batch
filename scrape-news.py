@@ -14,6 +14,7 @@ from google import genai
 # 사용자가 확정한 리스트
 RSS_FEEDS = [
     {'url': 'https://news.google.com/rss/search?q=HL%EC%95%88%EC%96%91&hl=ko&gl=KR&ceid=KR:ko', 'language': 'ko'},
+    {'url': 'https://news.google.com/rss/search?q=%EC%95%84%EC%9D%B4%EC%8A%A4%ED%95%98%ED%82%A4&hl=ko&gl=KR&ceid=KR:ko', 'language': 'ko'},
     {'url': 'https://news.google.com/rss/search?q=%EC%95%84%EC%8B%9C%EC%95%84%EB%A6%AC%EA%B7%B8+%EC%95%84%EC%9D%B4%EC%8A%A4%ED%95%98%ED%82%A4&hl=ko&gl=KR&ceid=KR:ko', 'language': 'ko'},
     {'url': 'https://news.google.com/rss/search?q=Asia+League+Ice+Hockey&hl=en-US&gl=US&ceid=US:en', 'language': 'en'},
     {'url': 'https://news.google.com/rss/search?q=%E3%82%A2%E3%82%B8%E3%82%A2%E3%83%AA%E3%83%BC%E3%82%B0%E3%82%A2%E3%82%A4%E3%82%B9%E3%83%9B%E3%83%83%E3%82%B1%E3%83%BC&hl=ja&gl=JP&ceid=JP:ja', 'language': 'ja'}
