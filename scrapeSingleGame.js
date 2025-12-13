@@ -181,11 +181,32 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
   };
   
   // 3B. Game Summary
+  // OVT/PSS의 '-' 값을 null로 변환하는 헬퍼
+  const cleanSummaryValue = (val) => {
+    const cleaned = val.trim();
+    return cleaned === '-' || cleaned === '' ? null : cleaned;
+  };
+  
   const summaryRows = gameSummaryTable.find('tr').slice(2); // 헤더 2줄 제외
+  // 테이블 구조: 0=1P, 1=2P, 2=3P, 3=OVT, 4=PSS, 5=TOTAL
   const game_summary = {
     period_1: { score: cleanText(summaryRows.eq(0).find('td').eq(1)), sog: cleanText(summaryRows.eq(0).find('td').eq(2)), pim: cleanText(summaryRows.eq(0).find('td').eq(3)), ppgf: cleanText(summaryRows.eq(0).find('td').eq(4)), shgf: cleanText(summaryRows.eq(0).find('td').eq(5)) },
     period_2: { score: cleanText(summaryRows.eq(1).find('td').eq(1)), sog: cleanText(summaryRows.eq(1).find('td').eq(2)), pim: cleanText(summaryRows.eq(1).find('td').eq(3)), ppgf: cleanText(summaryRows.eq(1).find('td').eq(4)), shgf: cleanText(summaryRows.eq(1).find('td').eq(5)) },
     period_3: { score: cleanText(summaryRows.eq(2).find('td').eq(1)), sog: cleanText(summaryRows.eq(2).find('td').eq(2)), pim: cleanText(summaryRows.eq(2).find('td').eq(3)), ppgf: cleanText(summaryRows.eq(2).find('td').eq(4)), shgf: cleanText(summaryRows.eq(2).find('td').eq(5)) },
+    ovt: { 
+      score: cleanSummaryValue(cleanText(summaryRows.eq(3).find('td').eq(1))), 
+      sog: cleanSummaryValue(cleanText(summaryRows.eq(3).find('td').eq(2))), 
+      pim: cleanSummaryValue(cleanText(summaryRows.eq(3).find('td').eq(3))), 
+      ppgf: cleanSummaryValue(cleanText(summaryRows.eq(3).find('td').eq(4))), 
+      shgf: cleanSummaryValue(cleanText(summaryRows.eq(3).find('td').eq(5))) 
+    },
+    pss: { 
+      score: cleanSummaryValue(cleanText(summaryRows.eq(4).find('td').eq(1))), 
+      sog: cleanSummaryValue(cleanText(summaryRows.eq(4).find('td').eq(2))), 
+      pim: cleanSummaryValue(cleanText(summaryRows.eq(4).find('td').eq(3))), 
+      ppgf: cleanSummaryValue(cleanText(summaryRows.eq(4).find('td').eq(4))), 
+      shgf: cleanSummaryValue(cleanText(summaryRows.eq(4).find('td').eq(5))) 
+    },
     total: { score: cleanText(summaryRows.eq(5).find('td').eq(1)), sog: cleanText(summaryRows.eq(5).find('td').eq(2)), pim: cleanText(summaryRows.eq(5).find('td').eq(3)), ppgf: cleanText(summaryRows.eq(5).find('td').eq(4)), shgf: cleanText(summaryRows.eq(5).find('td').eq(5)) }
   };
   
@@ -262,7 +283,7 @@ async function main() {
 
   // 1. "진행중"인 경기를 찾기 위한 시간 정의
   const now = new Date();
-  const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+  const sixHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   try {
     // 2. alih_schedule에서 "진행중"인 경기만 쿼리
