@@ -283,7 +283,7 @@ async function main() {
 
   // 1. "진행중"인 경기를 찾기 위한 시간 정의
   const now = new Date();
-  const sixHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
   try {
     // 2. alih_schedule에서 "진행중"인 경기만 쿼리
