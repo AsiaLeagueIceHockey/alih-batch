@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install supabase deep-translator yt-dlp
+          pip install supabase yt-dlp
 
       # 4. 스크래핑 스크립트 실행
       - name: Run highlights scraper

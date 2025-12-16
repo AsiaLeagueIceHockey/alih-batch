@@ -4,7 +4,6 @@ import json
 import re
 from datetime import datetime, timedelta
 from supabase import create_client, Client
-from deep_translator import GoogleTranslator
 
 # --- 1. Supabase 클라이언트 초기화 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -48,17 +47,23 @@ def normalize_team_name(name: str) -> str:
     
     return name  # 매핑 실패 시 원본 반환
 
-# --- 3. DB에서 팀 ID 맵 가져오기 ---
-def get_team_id_map():
-    """english_name -> team_id 맵 생성"""
+# --- 3. DB에서 팀 정보 맵 가져오기 ---
+def get_team_maps():
+    """
+    팀 정보를 가져와서 두 개의 맵을 반환:
+    1. english_name -> team_id
+    2. team_id -> korean_name (name)
+    """
     try:
-        response = supabase.table('alih_teams').select('id, english_name').execute()
+        response = supabase.table('alih_teams').select('id, english_name, name').execute()
         if response.data:
-            return {team['english_name']: team['id'] for team in response.data}
-        return {}
+            id_map = {team['english_name']: team['id'] for team in response.data}
+            korean_name_map = {team['id']: team['name'] for team in response.data}
+            return id_map, korean_name_map
+        return {}, {}
     except Exception as e:
         print(f"Error fetching team map: {e}")
-        return {}
+        return {}, {}
 
 # --- 4. yt-dlp로 YouTube 채널 영상 목록 가져오기 ---
 def get_recent_videos(channel_url: str, limit: int = 20) -> list:
@@ -121,36 +126,23 @@ def parse_video_title(title: str) -> dict | None:
     
     return None
 
-# --- 6. 제목 번역 ---
-def translate_title(title: str, target_lang: str = 'ko') -> str:
-    """일본어 제목을 한국어로 번역"""
-    try:
-        # 날짜 부분을 한국어 형식으로 변환
-        # 【2025.12.14】 -> 2025년 12월 14일
-        date_pattern = r'【(\d{4})\.(\d{1,2})\.(\d{1,2})】'
-        date_match = re.search(date_pattern, title)
-        
-        if date_match:
-            year, month, day = date_match.groups()
-            korean_date = f"{year}년 {int(month)}월 {int(day)}일"
-            
-            # 팀 추출
-            team_pattern = r'【\d{4}\.\d{1,2}\.\d{1,2}】(.+?)\s+vs\s+(.+?)\s*\|'
-            team_match = re.search(team_pattern, title, re.IGNORECASE)
-            
-            if team_match:
-                team_a, team_b = team_match.groups()
-                return f"{korean_date} {team_a.strip()} vs {team_b.strip()} 하이라이트"
-        
-        # 패턴 매칭 실패 시 번역기 사용
-        translator = GoogleTranslator(source='auto', target=target_lang)
-        return translator.translate(title)
-    except Exception as e:
-        print(f"Translation failed for '{title}': {e}")
-        return title  # 번역 실패 시 원본 반환
+# --- 6. 하이라이트 타이틀 생성 ---
+def generate_highlight_title(parsed_info: dict, home_team_id: int, away_team_id: int, korean_name_map: dict) -> str:
+    """
+    하이라이트 타이틀을 생성합니다.
+    형식: 하이라이트 | 홈팀 한국어 vs 어웨이팀 한국어 | 2025.12.13
+    """
+    # 날짜 형식 변환 (2025-12-13 -> 2025.12.13)
+    date_str = parsed_info['date'].replace('-', '.')
+    
+    # 한국어 팀명 가져오기
+    home_korean = korean_name_map.get(home_team_id, parsed_info['team_a'])
+    away_korean = korean_name_map.get(away_team_id, parsed_info['team_b'])
+    
+    return f"하이라이트 | {home_korean} vs {away_korean} | {date_str}"
 
 # --- 7. 경기 매칭 및 업데이트 ---
-def match_and_update_schedule(video: dict, parsed_info: dict, team_id_map: dict):
+def match_and_update_schedule(video: dict, parsed_info: dict, team_id_map: dict, korean_name_map: dict):
     """
     파싱된 영상 정보를 alih_schedule과 매칭하여 업데이트합니다.
     """
@@ -205,17 +197,23 @@ def match_and_update_schedule(video: dict, parsed_info: dict, team_id_map: dict)
         
         # 업데이트
         video_url = f"https://www.youtube.com/watch?v={video['id']}"
-        translated_title = translate_title(parsed_info['original_title'])
+        
+        # 홈/어웨이 팀 ID 확인
+        home_team_id = matched_game['home_alih_team_id']
+        away_team_id = matched_game['away_alih_team_id']
+        
+        # 한국어 타이틀 생성
+        highlight_title = generate_highlight_title(parsed_info, home_team_id, away_team_id, korean_name_map)
         
         update_response = supabase.table('alih_schedule') \
             .update({
                 'highlight_url': video_url,
-                'highlight_title': translated_title
+                'highlight_title': highlight_title
             }) \
             .eq('id', matched_game['id']) \
             .execute()
         
-        print(f"  [SUCCESS] Updated Game {matched_game['game_no']}: {translated_title}")
+        print(f"  [SUCCESS] Updated Game {matched_game['game_no']}: {highlight_title}")
         return True
         
     except Exception as e:
@@ -228,10 +226,10 @@ def main():
     
     channel_url = "https://www.youtube.com/@ALhockey_JP/videos"
     
-    # 팀 ID 맵 가져오기
-    team_id_map = get_team_id_map()
+    # 팀 정보 맵 가져오기
+    team_id_map, korean_name_map = get_team_maps()
     if not team_id_map:
-        print("Failed to load team ID map. Exiting.")
+        print("Failed to load team maps. Exiting.")
         return
     
     print(f"Loaded {len(team_id_map)} teams from database.")
@@ -259,7 +257,7 @@ def main():
         
         print(f"  Parsed: {parsed['date']} - {parsed['team_a']} vs {parsed['team_b']}")
         
-        if match_and_update_schedule(video, parsed, team_id_map):
+        if match_and_update_schedule(video, parsed, team_id_map, korean_name_map):
             updated_count += 1
     
     print(f"\n[DONE] Updated {updated_count} games with highlights.")
