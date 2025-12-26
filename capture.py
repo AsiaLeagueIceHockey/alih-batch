@@ -8,6 +8,7 @@ Instagram Preview/Result 캡처 및 Slack 알림 스크립트
 """
 
 import os
+import re
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
@@ -112,7 +113,8 @@ def capture_match_result(game_no: int) -> str:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             viewport={'width': 1080, 'height': 1350},
-            device_scale_factor=2
+            device_scale_factor=2,
+            timezone_id='Asia/Seoul'  # KST 타임존 설정
         )
         page = context.new_page()
         
@@ -138,7 +140,8 @@ def capture_match_preview(game_no: int) -> str:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             viewport={'width': 1080, 'height': 1350},
-            device_scale_factor=2
+            device_scale_factor=2,
+            timezone_id='Asia/Seoul'  # KST 타임존 설정
         )
         page = context.new_page()
         
@@ -257,11 +260,12 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 {example}
 
 [요구사항]
-1. 각 경기마다 기대포인트를 흥미롭게 작성 (순위 경쟁, 맞대결 전적, 선수 활약 등)
+1. 각 경기마다 기대포인트를 흥미롭게 작성 (순위 경쟁, 홈/원정 매치업 등)
 2. 팀 이름은 반드시 위 [팀 정보]에 있는 한국어 이름만 사용
 3. 이모지 적극 활용
 4. 마지막에 @alhockey_fans 멘션과 해시태그 포함
 5. 해시태그에는 팀 영문명(소문자, 공백제거)도 포함
+6. 주의: 선수 이름, 개인 기록, 부상 정보 등 제공되지 않은 정보는 절대 언급하지 마세요. 오직 위에 제공된 정보만 사용하세요.
 
 위 예시 스타일을 참고하여 멘트를 작성해주세요."""
 
@@ -297,9 +301,17 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 4. 이모지 적극 활용
 5. 마지막에 @alhockey_fans 멘션과 해시태그 포함
 6. 해시태그에는 팀 영문명(소문자, 공백제거)도 포함
+7. 주의: 선수 이름, 득점자, 개인 기록 등 제공되지 않은 정보는 절대 언급하지 마세요. 오직 위에 제공된 점수와 팀 정보만 사용하세요.
 
 위 예시 스타일을 참고하여 멘트를 작성해주세요."""
 
+    # 프롬프트 로깅
+    print(f"\n{'='*60}")
+    print(f"📤 [Groq API] {caption_type.upper()} 프롬프트 전송")
+    print(f"{'='*60}")
+    print(prompt)
+    print(f"{'='*60}\n")
+    
     try:
         completion = client.chat.completions.create(
             model="openai/gpt-oss-120b",
@@ -315,10 +327,58 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 # 4. Slack 알림
 # =============================================================================
 
+def clean_markdown(text: str) -> str:
+    """
+    마크다운 문법 제거 (인스타그램 복붙용)
+    """
+    # **bold** -> bold
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    # *italic* -> italic
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    # __underline__ -> underline
+    text = re.sub(r'__(.+?)__', r'\1', text)
+    # _italic_ -> italic
+    text = re.sub(r'_(.+?)_', r'\1', text)
+    # ~~strikethrough~~ -> strikethrough
+    text = re.sub(r'~~(.+?)~~', r'\1', text)
+    # `code` -> code
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    return text
+
+
+def upload_image_to_supabase(file_path: str) -> str | None:
+    """
+    이미지를 Supabase Storage에 업로드하고 Public URL 반환
+    """
+    try:
+        bucket_name = "instagram-captures"
+        file_name = os.path.basename(file_path)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        storage_path = f"{timestamp}_{file_name}"
+        
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+        
+        # 업로드
+        response = supabase.storage.from_(bucket_name).upload(
+            storage_path,
+            file_data,
+            file_options={"content-type": "image/png"}
+        )
+        
+        # Public URL 생성
+        public_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
+        print(f"✅ Supabase Storage 업로드 완료: {storage_path}")
+        return public_url
+        
+    except Exception as e:
+        print(f"❌ Supabase Storage 업로드 실패: {e}")
+        return None
+
+
 def send_to_slack(image_paths: list, caption: str, caption_type: str):
     """
-    Slack Webhook으로 멘트 전송
-    이미지는 GitHub Artifacts로 다운로드 가능하도록 안내
+    Slack Webhook으로 멘트 + 이미지 전송
     """
     if not SLACK_WEBHOOK_URL:
         print("⚠️ SLACK_WEBHOOK_URL이 설정되지 않음. Slack 전송 생략.")
@@ -327,40 +387,47 @@ def send_to_slack(image_paths: list, caption: str, caption_type: str):
     emoji = "📸" if caption_type == "preview" else "🏒"
     title = "PREVIEW" if caption_type == "preview" else "RESULT"
     
-    # 이미지 파일 목록
-    image_list = "\n".join([f"• `{path}`" for path in image_paths])
+    # 마크다운 제거한 깨끗한 멘트
+    clean_caption = clean_markdown(caption)
     
-    payload = {
-        "blocks": [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": f"{emoji} Instagram {title}",
-                    "emoji": True
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": caption
-                }
-            },
-            {
-                "type": "divider"
-            },
-            {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"*생성된 이미지 ({len(image_paths)}개):*\n{image_list}\n\n💡 GitHub Actions Artifacts에서 다운로드 가능"
-                    }
-                ]
+    # 이미지를 Supabase Storage에 업로드하고 URL 수집
+    image_urls = []
+    for path in image_paths:
+        url = upload_image_to_supabase(path)
+        if url:
+            image_urls.append(url)
+    
+    # Slack 메시지 구성
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{emoji} Instagram {title}",
+                "emoji": True
             }
-        ]
-    }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"```{clean_caption}```"
+            }
+        },
+        {
+            "type": "divider"
+        }
+    ]
+    
+    # 이미지들 추가
+    for i, url in enumerate(image_urls):
+        blocks.append({
+            "type": "image",
+            "image_url": url,
+            "alt_text": f"{caption_type}_{i+1}"
+        })
+    
+    payload = {"blocks": blocks}
     
     try:
         response = requests.post(SLACK_WEBHOOK_URL, json=payload)
