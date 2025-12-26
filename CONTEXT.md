@@ -17,11 +17,13 @@
 alih-batch/
 ├── .github/
 │   └── workflows/             # GitHub Actions 워크플로우 정의
+│       ├── capture-instagram.yaml # 인스타그램 캡처 + AI 멘트 (매일 21:00 KST)
 │       ├── live-news.yaml     # 뉴스 스크래핑 (매시 정각)
 │       ├── parse-gamesheet.yaml  # 경기 상세 정보 스크래핑 (20분 간격)
 │       ├── update-standings.yaml  # 순위표 업데이트 (30분 간격)
 │       └── update-stat.yaml   # 선수 통계 업데이트 (매시 정각)
 ├── node_modules/              # Node.js 의존성
+├── capture.py                 # 인스타그램 캡처 + AI 멘트 + Slack 알림
 ├── change-news-url.py         # 뉴스 URL 리다이렉트 테스트 유틸리티
 ├── live-game.ts               # Supabase Edge Function용 라이브 스코어 폴링 (미사용)
 ├── package.json               # Node.js 프로젝트 메타데이터
@@ -212,10 +214,36 @@ alih-batch/
 
 ---
 
+### 8. `capture.py` (Python)
+
+**목적**: 인스타그램용 경기 Preview/Result 이미지 캡처 및 AI 멘트 생성
+
+**데이터 소스**: 
+- `https://alhockey.fans/instagram/preview?game_no={game_no}` (Preview)
+- `https://alhockey.fans/instagram/score?game_no={game_no}` (Result)
+
+**실행 주기**: 매일 21:00 KST (GitHub Actions: `capture-instagram.yaml`)
+
+**주요 기능**:
+1. Supabase에서 오늘/내일 경기 일정 조회
+2. Playwright로 인스타그램 비율(1080x1350) 스크린샷 캡처
+3. Groq AI (`openai/gpt-oss-120b`)로 팀 컨텍스트 포함 멘트 생성
+4. Slack Webhook으로 이미지 + 멘트 알림 전송
+
+**AI 멘트 생성 로직**:
+- `alih_teams`에서 한국어 팀명 조회하여 프롬프트에 포함
+- `alih_standings`에서 순위 정보 조회하여 경기 분석에 활용
+- Preview: 기대포인트 중심 / Result: 경기 결과 분석 중심
+
+**의존성**: `playwright`, `supabase`, `groq`, `requests`
+
+---
+
 ## ⚙️ GitHub Actions 워크플로우
 
 | 워크플로우 | 스케줄 | 실행 스크립트 | 환경 |
 |-----------|--------|--------------|------|
+| `capture-instagram.yaml` | 매일 21:00 KST | `capture.py` | Python 3.10 + Playwright + Groq |
 | `live-news.yaml` | 매시 정각 | `scrape-news.py` | Python 3.10 + Playwright |
 | `parse-gamesheet.yaml` | 20분 간격 | `scrapeSingleGame.js` | Node.js 20 |
 | `update-standings.yaml` | 30분 간격 | `scrape-standings.py` | Python 3.10 |
@@ -229,6 +257,8 @@ alih-batch/
 | `SUPABASE_URL` | Supabase 프로젝트 URL |
 | `SUPABASE_SERVICE_KEY` | Supabase Service Role Key (RLS 우회용) |
 | `GEMINI_API_KEY` | Gemini API 키 (뉴스 요약용) |
+| `GROQ_API_KEY` | Groq API 키 (인스타그램 멘트 생성용) |
+| `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL (알림용) |
 
 ---
 
