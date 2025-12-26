@@ -50,13 +50,14 @@ def get_team_info() -> dict:
 def get_standings_info() -> dict:
     """
     alih_standings에서 순위 정보 조회
-    Returns: {team_id: rank}
+    Returns: {team_id: {'rank': rank, 'points': points}}
     """
     response = supabase.table('alih_standings') \
-        .select('team_id, rank') \
+        .select('team_id, rank, points') \
+        .order('rank') \
         .execute()
     
-    return {s['team_id']: s['rank'] for s in response.data}
+    return {s['team_id']: {'rank': s['rank'], 'points': s['points']} for s in response.data}
 
 
 def get_todays_matches() -> list:
@@ -121,7 +122,7 @@ def capture_match_result(game_no: int) -> str:
         target_url = f"https://alhockey.fans/instagram/score?game_no={game_no}"
         print(f"📡 [Result] 캡처 중: {target_url}")
         page.goto(target_url)
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(5000)  # 로고 등 로딩 대기
         
         file_name = f"result_{game_no}.png"
         page.screenshot(path=file_name, full_page=True)
@@ -148,7 +149,7 @@ def capture_match_preview(game_no: int) -> str:
         target_url = f"https://alhockey.fans/instagram/preview?game_no={game_no}"
         print(f"📡 [Preview] 캡처 중: {target_url}")
         page.goto(target_url)
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(5000)  # 로고 등 로딩 대기
         
         file_name = f"preview_{game_no}.png"
         page.screenshot(path=file_name, full_page=True)
@@ -163,7 +164,7 @@ def capture_match_preview(game_no: int) -> str:
 # =============================================================================
 
 def format_match_info_for_preview(matches: list, team_info: dict, standings: dict) -> str:
-    """Preview용 경기 정보 포맷"""
+    """경기 정보 포맷 (Preview용)"""
     lines = []
     for i, match in enumerate(matches, 1):
         home_id = match['home_alih_team_id']
@@ -171,12 +172,15 @@ def format_match_info_for_preview(matches: list, team_info: dict, standings: dic
         
         home_name = team_info.get(home_id, {}).get('name', 'Unknown')
         away_name = team_info.get(away_id, {}).get('name', 'Unknown')
-        home_rank = standings.get(home_id, '?')
-        away_rank = standings.get(away_id, '?')
+        home_standing = standings.get(home_id, {})
+        away_standing = standings.get(away_id, {})
+        home_rank = home_standing.get('rank', '?')
+        away_rank = away_standing.get('rank', '?')
+        home_pts = home_standing.get('points', 0)
+        away_pts = away_standing.get('points', 0)
         
         match_time = match['match_at']
         if match_time:
-            # ISO format에서 시간만 추출
             try:
                 dt = datetime.fromisoformat(match_time.replace('Z', '+00:00'))
                 time_str = dt.strftime('%H:%M')
@@ -185,13 +189,13 @@ def format_match_info_for_preview(matches: list, team_info: dict, standings: dic
         else:
             time_str = ""
         
-        lines.append(f"{i}. {home_name} ({home_rank}위) vs {away_name} ({away_rank}위) - {time_str}")
+        lines.append(f"{i}. {home_name} ({home_rank}위, {home_pts}pts) vs {away_name} ({away_rank}위, {away_pts}pts) - {time_str}")
     
     return "\n".join(lines)
 
 
 def format_match_info_for_result(matches: list, team_info: dict, standings: dict) -> str:
-    """Result용 경기 정보 포맷"""
+    """경기 결과 포맷 (Result용)"""
     lines = []
     for i, match in enumerate(matches, 1):
         home_id = match['home_alih_team_id']
@@ -203,6 +207,22 @@ def format_match_info_for_result(matches: list, team_info: dict, standings: dict
         away_score = match.get('away_alih_team_score', 0) or 0
         
         lines.append(f"{i}. {home_name} ({home_score}) : ({away_score}) {away_name}")
+    
+    return "\n".join(lines)
+
+
+def format_league_standings(team_info: dict, standings: dict) -> str:
+    """전체 리그 순위표 포맷 (AI 컨텍스트용)"""
+    # standings를 순위 순으로 정렬
+    sorted_standings = sorted(standings.items(), key=lambda x: x[1].get('rank', 99))
+    
+    lines = []
+    for team_id, standing in sorted_standings:
+        team = team_info.get(team_id, {})
+        team_name = team.get('name', 'Unknown')
+        rank = standing.get('rank', '?')
+        points = standing.get('points', 0)
+        lines.append(f"{rank}위. {team_name} - {points}pts")
     
     return "\n".join(lines)
 
@@ -223,6 +243,9 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
         f"- {t['name']} (영문: {t['english_name']})" 
         for t in team_info.values()
     ])
+    
+    # 전체 리그 순위표
+    league_standings = format_league_standings(team_info, standings)
     
     # 경기 정보
     if caption_type == 'preview':
@@ -253,6 +276,9 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 [아시아리그 팀 정보 - 반드시 이 이름들만 사용하세요]
 {team_context}
 
+[현재 리그 순위표 - 포인트 차이를 참고하여 경기 분위기를 파악하세요]
+{league_standings}
+
 [내일 경기 정보 - {date_info}]
 {match_info}
 
@@ -260,7 +286,7 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 {example}
 
 [요구사항]
-1. 각 경기마다 기대포인트를 흥미롭게 작성 (순위 경쟁, 홈/원정 매치업 등)
+1. 각 경기마다 기대포인트를 흥미롭게 작성 (순위 경쟁, 포인트 차이, 홈/원정 매치업 등)
 2. 팀 이름은 반드시 위 [팀 정보]에 있는 한국어 이름만 사용
 3. 이모지 적극 활용
 4. 마지막에 @alhockey_fans 멘션과 해시태그 포함
@@ -287,6 +313,9 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 
 [아시아리그 팀 정보 - 반드시 이 이름들만 사용하세요]
 {team_context}
+
+[현재 리그 순위표 - 포인트 차이를 참고하여 경기 의미를 분석하세요]
+{league_standings}
 
 [오늘 경기 결과 - {date_info}]
 {match_info}
