@@ -101,6 +101,19 @@ def get_tomorrows_matches() -> list:
     return response.data
 
 
+def get_goal_count(game_no: int) -> int:
+    """경기의 총 골 수 조회"""
+    response = supabase.table('alih_game_details') \
+        .select('goals') \
+        .eq('game_no', game_no) \
+        .maybeSingle() \
+        .execute()
+    
+    if response.data and response.data.get('goals'):
+        return len(response.data['goals'])
+    return 0
+
+
 # =============================================================================
 # 2. 캡처 함수
 # =============================================================================
@@ -159,6 +172,45 @@ def capture_match_preview(game_no: int) -> str:
         return file_name
 
 
+def capture_match_goals(game_no: int) -> list[str]:
+    """
+    Goals 페이지 캡처 (페이지네이션 대응)
+    Returns: 저장된 파일 경로 리스트
+    """
+    goal_count = get_goal_count(game_no)
+    if goal_count == 0:
+        print(f"⚠️ game_no={game_no}: 골 기록 없음, 캡처 생략")
+        return []
+    
+    GOALS_PER_PAGE = 6
+    total_pages = (goal_count + GOALS_PER_PAGE - 1) // GOALS_PER_PAGE  # 올림 나눗셈
+    
+    image_paths = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            viewport={'width': 1080, 'height': 1350},
+            device_scale_factor=2,
+            timezone_id='Asia/Seoul'
+        )
+        page = context.new_page()
+        
+        for page_num in range(1, total_pages + 1):
+            target_url = f"https://alhockey.fans/instagram/goals?game_no={game_no}&page={page_num}"
+            print(f"📡 [Goals] 캡처 중: {target_url}")
+            page.goto(target_url)
+            page.wait_for_timeout(5000)
+            
+            file_name = f"goals_{game_no}_p{page_num}.png"
+            page.screenshot(path=file_name)
+            image_paths.append(file_name)
+            print(f"✅ 저장 완료: {file_name}")
+        
+        browser.close()
+    
+    return image_paths
+
+
 # =============================================================================
 # 3. AI 멘트 생성 (Groq)
 # =============================================================================
@@ -194,19 +246,96 @@ def format_match_info_for_preview(matches: list, team_info: dict, standings: dic
     return "\n".join(lines)
 
 
+def get_goals_info(game_no: int, team_info: dict) -> str:
+    """
+    경기별 골/어시스트 정보 추출
+    Returns: 포맷된 골 정보 문자열
+    """
+    response = supabase.table('alih_game_details') \
+        .select('goals, home_roster, away_roster') \
+        .eq('game_no', game_no) \
+        .maybeSingle() \
+        .execute()
+    
+    if not response.data or not response.data.get('goals'):
+        return "골 기록 없음"
+    
+    data = response.data
+    goals = data['goals']
+    home_roster = {p['no']: p['name'] for p in data.get('home_roster', [])}
+    away_roster = {p['no']: p['name'] for p in data.get('away_roster', [])}
+    
+    # 스케줄에서 홈/어웨이 팀 ID 조회 필요
+    schedule_res = supabase.table('alih_schedule') \
+        .select('home_alih_team_id, away_alih_team_id') \
+        .eq('game_no', game_no) \
+        .maybeSingle() \
+        .execute()
+    
+    if not schedule_res.data:
+        return "스케줄 정보 없음"
+    
+    home_team_id = schedule_res.data['home_alih_team_id']
+    away_team_id = schedule_res.data['away_alih_team_id']
+    
+    # 골을 시간순 정렬
+    sorted_goals = sorted(goals, key=lambda g: (
+        int(g['time'].split(':')[0]) * 60 + int(g['time'].split(':')[1])
+    ))
+    
+    lines = []
+    for i, goal in enumerate(sorted_goals, 1):
+        team_id = goal['team_id']
+        is_home = team_id == home_team_id
+        roster = home_roster if is_home else away_roster
+        team_name = team_info.get(team_id, {}).get('name', 'Unknown')
+        
+        # 득점자 이름
+        scorer_no = goal['goal_no']
+        scorer_name = roster.get(scorer_no, f"#{scorer_no}")
+        
+        # 어시스트
+        assists = []
+        if goal.get('assist1_no'):
+            assists.append(roster.get(goal['assist1_no'], f"#{goal['assist1_no']}"))
+        if goal.get('assist2_no'):
+            assists.append(roster.get(goal['assist2_no'], f"#{goal['assist2_no']}"))
+        
+        assist_str = f" (A: {', '.join(assists)})" if assists else ""
+        
+        # 피리어드 라벨
+        period = goal['period']
+        period_label = 'OT' if period == 4 else 'SO' if period == 5 else f"{period}P"
+        
+        # 상황 라벨
+        situation = goal.get('situation', '=')
+        sit_label = "PP" if situation == "+1" else "SH" if situation == "-1" else ""
+        sit_str = f" [{sit_label}]" if sit_label else ""
+        
+        lines.append(f"  - {period_label} {team_name}: {scorer_name}{assist_str}{sit_str}")
+    
+    return "\n".join(lines)
+
+
 def format_match_info_for_result(matches: list, team_info: dict, standings: dict) -> str:
-    """경기 결과 포맷 (Result용)"""
+    """경기 결과 포맷 (Result용) - 골 정보 포함"""
     lines = []
     for i, match in enumerate(matches, 1):
         home_id = match['home_alih_team_id']
         away_id = match['away_alih_team_id']
+        game_no = match['game_no']
         
         home_name = team_info.get(home_id, {}).get('name', 'Unknown')
         away_name = team_info.get(away_id, {}).get('name', 'Unknown')
         home_score = match.get('home_alih_team_score', 0) or 0
         away_score = match.get('away_alih_team_score', 0) or 0
         
+        # 골 정보 추가
+        goals_info = get_goals_info(game_no, team_info)
+        
         lines.append(f"{i}. {home_name} ({home_score}) : ({away_score}) {away_name}")
+        lines.append(f"   [득점 기록]")
+        lines.append(goals_info)
     
     return "\n".join(lines)
 
@@ -331,6 +460,9 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 5. 마지막에 @alhockey_fans 멘션과 해시태그 포함
 6. 해시태그에는 팀 영문명(소문자, 공백제거)도 포함
 7. 주의: 선수 이름, 득점자, 개인 기록 등 제공되지 않은 정보는 절대 언급하지 마세요. 오직 위에 제공된 점수와 팀 정보만 사용하세요.
+8. 골 기록에서 멀티골(2골 이상) 선수가 있다면 특별히 언급하세요
+9. 파워플레이(PP) 또는 숏핸디드(SH) 골이 있다면 강조해도 좋습니다
+10. 단, 모든 골을 다 언급할 필요는 없습니다. 주요 득점자 1-2명만 하이라이트하세요
 
 위 예시 스타일을 참고하여 멘트를 작성해주세요."""
 
@@ -488,23 +620,34 @@ def main():
     print(f"\n📅 오늘 경기: {len(todays_matches)}개")
     
     if todays_matches:
-        # 캡처
         result_images = []
+        goals_images = []  # 추가
+        
         for match in todays_matches:
             game_no = match['game_no']
+            
+            # Result 캡처
             try:
                 image_path = capture_match_result(game_no)
                 result_images.append(image_path)
             except Exception as e:
                 print(f"❌ Result 캡처 실패 (game_no={game_no}): {e}")
+            
+            # Goals 캡처 (추가)
+            try:
+                goal_paths = capture_match_goals(game_no)
+                goals_images.extend(goal_paths)
+            except Exception as e:
+                print(f"❌ Goals 캡처 실패 (game_no={game_no}): {e}")
         
-        # AI 멘트 생성
+        # Slack 전송 (Result)
         if result_images:
             result_caption = generate_caption(todays_matches, team_info, standings, 'result')
-            print(f"\n📝 Result 멘트:\n{result_caption[:200]}...")
-            
-            # Slack 전송
             send_to_slack(result_images, result_caption, 'result')
+        
+        # Slack 전송 (Goals) - 추가
+        if goals_images:
+            send_to_slack(goals_images, "🏒 오늘 경기 골/어시스트 기록입니다!", 'goals')
     else:
         print("  → 오늘 경기 없음")
     
