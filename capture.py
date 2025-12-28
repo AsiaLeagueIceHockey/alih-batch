@@ -106,7 +106,7 @@ def get_goal_count(game_no: int) -> int:
     response = supabase.table('alih_game_details') \
         .select('goals') \
         .eq('game_no', game_no) \
-        .maybeSingle() \
+        .maybe_single() \
         .execute()
     
     if response.data and response.data.get('goals'):
@@ -254,7 +254,7 @@ def get_goals_info(game_no: int, team_info: dict) -> str:
     response = supabase.table('alih_game_details') \
         .select('goals, home_roster, away_roster') \
         .eq('game_no', game_no) \
-        .maybeSingle() \
+        .maybe_single() \
         .execute()
     
     if not response.data or not response.data.get('goals'):
@@ -269,7 +269,7 @@ def get_goals_info(game_no: int, team_info: dict) -> str:
     schedule_res = supabase.table('alih_schedule') \
         .select('home_alih_team_id, away_alih_team_id') \
         .eq('game_no', game_no) \
-        .maybeSingle() \
+        .maybe_single() \
         .execute()
     
     if not schedule_res.data:
