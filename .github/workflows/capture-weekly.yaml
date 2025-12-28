@@ -1,0 +1,44 @@
+name: Capture Weekly Stats
+
+on:
+  schedule:
+    - cron: '0 13 * * 0'  # 매주 일요일 UTC 13:00 = KST 22:00
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright supabase groq requests
+      
+      - name: Install Playwright browsers
+        run: playwright install chromium
+      
+      - name: Run capture script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python capture_weekly.py
+      
+      - name: Upload images as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-images-${{ github.run_id }}
+          path: |
+            *.png
+          retention-days: 7
+          if-no-files-found: ignore
