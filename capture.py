@@ -125,7 +125,7 @@ def capture_match_result(game_no: int) -> str:
         page.wait_for_timeout(5000)  # 로고 등 로딩 대기
         
         file_name = f"result_{game_no}.png"
-        page.screenshot(path=file_name, full_page=True)
+        page.screenshot(path=file_name)
         print(f"✅ 저장 완료: {file_name}")
         
         browser.close()
@@ -152,7 +152,7 @@ def capture_match_preview(game_no: int) -> str:
         page.wait_for_timeout(5000)  # 로고 등 로딩 대기
         
         file_name = f"preview_{game_no}.png"
-        page.screenshot(path=file_name, full_page=True)
+        page.screenshot(path=file_name)
         print(f"✅ 저장 완료: {file_name}")
         
         browser.close()
