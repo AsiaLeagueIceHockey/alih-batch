@@ -33,7 +33,8 @@ alih-batch/
 ├── scrape-standings.py        # 순위표 스크래핑 스크립트
 ├── scrape-stat.py             # 선수 통계 스크래핑 스크립트
 ├── scrape-highlights.py       # YouTube 하이라이트 스크래핑 스크립트
-└── scrapeSingleGame.js        # 경기 상세 정보 스크래핑 스크립트 (메인)
+├── scrapeSingleGame.js        # 경기 상세 정보 스크래핑 스크립트 (메인)
+└── update-live-url.py         # 경기 라이브 URL 자동 갱신 스크립트
 ```
 
 ---
@@ -43,7 +44,7 @@ alih-batch/
 | 테이블명 | 설명 | 주요 컬럼 |
 |---------|------|---------|
 | `alih_teams` | 팀 정보 | `id`, `english_name`, `team_code` |
-| `alih_schedule` | 경기 일정 | `id`, `game_no`, `match_at`, `home_alih_team_id`, `away_alih_team_id`, `home_alih_team_score`, `away_alih_team_score`, `highlight_url`, `highlight_title` |
+| `alih_schedule` | 경기 일정 | `id`, `game_no`, `match_at`, `home_alih_team_id`, `away_alih_team_id`, `home_alih_team_score`, `away_alih_team_score`, `highlight_url`, `highlight_title`, `live_url` |
 | `alih_game_details` | 경기 상세 정보 (로스터, 골, 페널티) | `game_no` (UNIQUE), `spectators`, `game_info`, `game_summary`, `goalkeepers`, `home_roster`, `away_roster`, `goals`, `penalties` |
 | `alih_standings` | 팀 순위표 | `team_id` (UNIQUE), `rank`, `games_played`, `win_60min`, `win_ot`, `win_pss`, `lose_pss`, `lose_ot`, `lose_60min`, `goals_for`, `goals_against`, `points` |
 | `alih_players` | 선수 정보 | `team_id`, `name` (UNIQUE), `jersey_number`, `position`, `games_played`, `points`, `goals`, `assists`, `shots`, `plus_minus`, `pim` |
@@ -239,6 +240,35 @@ alih-batch/
 
 ---
 
+### 9. `update-live-url.py` (Python)
+
+**목적**: 경기 시작 전 홈팀 유튜브 채널에서 라이브 스트림을 검색하여 `live_url` 자동 갱신
+
+**실행 주기**: 15분 간격 (GitHub Actions: `update-live-url.yaml`)
+
+**지원 팀** (홈팀 기준):
+| 팀명 | 유튜브 채널 | 언어 |
+|------|-------------|------|
+| HL Anyang | `@hlanyang` | 한국어 |
+| RED EAGLES HOKKAIDO | `@OjiEaglesFan` | 일본어 |
+| TOHOKU FREE BLADES | `@freeblades2009` | 일본어 |
+| YOKOHAMA GRITS | `@grits5937` | 일본어 |
+
+**주요 기능**:
+1. `alih_schedule`에서 향후 6시간 이내 시작, `live_url` 없는 경기 조회
+2. 홈팀 유튜브 채널의 `/streams` 페이지에서 라이브/예정 스트림 검색
+3. 스트림 제목에서 상대팀 키워드 또는 경기 날짜 매칭
+4. 매칭 성공 시 `alih_schedule.live_url` 업데이트
+
+**매칭 전략**:
+- 한국어, 영어, 일본어 팀명 키워드로 상대팀 매칭
+- 날짜 패턴 (YYYY.MM.DD, MM/DD 등)으로 경기 날짜 매칭
+- 라이브 관련 키워드 (live, ライブ, 生放送, vs, 試合 등) 확인
+
+**의존성**: `supabase`, `yt-dlp`
+
+---
+
 ## ⚙️ GitHub Actions 워크플로우
 
 | 워크플로우 | 스케줄 | 실행 스크립트 | 환경 |
@@ -249,6 +279,7 @@ alih-batch/
 | `update-standings.yaml` | 30분 간격 | `scrape-standings.py` | Python 3.10 |
 | `update-stat.yaml` | 매시 정각 | `scrape-stat.py`, `scrape-players.py` | Python 3.10 |
 | `update-highlights.yaml` | 매시 30분 | `scrape-highlights.py` | Python 3.10 + yt-dlp |
+| `update-live-url.yaml` | 15분 간격 | `update-live-url.py` | Python 3.10 + yt-dlp |
 
 ### GitHub Secrets 필요 변수:
 
