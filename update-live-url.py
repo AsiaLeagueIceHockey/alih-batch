@@ -94,17 +94,19 @@ def get_team_info() -> tuple[dict, dict]:
 # --- 5. 곧 시작할 경기 조회 ---
 def get_upcoming_games(supported_team_ids: list) -> list:
     """
-    향후 6시간 이내에 시작하고 live_url이 없는 경기를 조회합니다.
+    향후 7일 이내에 시작하고 live_url이 없는 경기를 조회합니다.
     홈팀이 라이브 중계 채널을 가진 팀인 경우만 대상으로 합니다.
+    
+    시리즈 전체를 한번에 처리할 수 있도록 7일로 설정되어 있습니다.
     """
     now = datetime.now(timezone.utc)
-    six_hours_later = now + timedelta(hours=6)
+    seven_days_later = now + timedelta(days=7)
     
     try:
         response = supabase.table('alih_schedule') \
             .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id, live_url') \
             .gte('match_at', now.isoformat()) \
-            .lte('match_at', six_hours_later.isoformat()) \
+            .lte('match_at', seven_days_later.isoformat()) \
             .in_('home_alih_team_id', supported_team_ids) \
             .execute()
         
