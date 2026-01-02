@@ -171,12 +171,15 @@ def find_live_streams(channel_url: str) -> list:
 # --- 7. 스트림과 경기 매칭 ---
 def match_stream_to_game(streams: list, game: dict, team_by_id: dict) -> str | None:
     """
-    라이브 스트림 제목에서 상대팀 키워드를 찾아 경기와 매칭합니다.
+    라이브 스트림 제목에서 상대팀 키워드와 날짜를 찾아 경기와 매칭합니다.
     
-    매칭 전략:
+    매칭 전략 (날짜 검증 필수):
     1. 스트림이 live 또는 upcoming 상태인지 확인
-    2. 제목에 라이브 관련 키워드가 있는지 확인
-    3. 제목에 상대팀(away_team) 키워드가 있는지 확인
+    2. 제목에 경기 날짜가 포함되어 있는지 확인 (필수)
+    3. 제목에 상대팀(away_team) 키워드가 있으면 추가 점수
+    
+    연속 시리즈 경기(같은 상대팀, 다른 날짜)에서 잘못된 매핑을 방지하기 위해
+    날짜 매칭을 필수 조건으로 합니다.
     """
     away_team_id = game['away_alih_team_id']
     away_team_info = team_by_id.get(away_team_id, {})
@@ -190,8 +193,20 @@ def match_stream_to_game(streams: list, game: dict, team_by_id: dict) -> str | N
     if away_korean_name:
         away_keywords.append(away_korean_name.lower())
     
+    # 경기 날짜 패턴 생성
+    match_date = game['match_at'][:10]  # YYYY-MM-DD
+    date_patterns = [
+        match_date.replace('-', '.'),  # 2026.01.02
+        match_date.replace('-', '/'),  # 2026/01/02
+        match_date[5:].replace('-', '.'),  # 01.02
+        match_date[5:].replace('-', '/'),  # 01/02
+        # 일본어 날짜 형식도 추가
+        f"{int(match_date[5:7])}月{int(match_date[8:10])}日",  # 1月2日
+    ]
+    
     for stream in streams:
-        title_lower = stream['title'].lower()
+        title = stream['title']
+        title_lower = title.lower()
         live_status = stream.get('live_status', '')
         
         # 1. 라이브 또는 예정된 스트림인지 확인
@@ -204,25 +219,30 @@ def match_stream_to_game(streams: list, game: dict, team_by_id: dict) -> str | N
         if not is_relevant:
             continue
         
-        # 2. 상대팀 키워드 매칭
+        # 2. 날짜 매칭 확인 (필수 조건)
+        date_matched = False
+        matched_date_pattern = None
+        for date_pattern in date_patterns:
+            if date_pattern in title:
+                date_matched = True
+                matched_date_pattern = date_pattern
+                break
+        
+        if not date_matched:
+            # 날짜가 없으면 이 스트림은 스킵
+            continue
+        
+        # 3. 상대팀 키워드 매칭 (추가 검증)
+        team_matched = False
         for keyword in away_keywords:
             if keyword.lower() in title_lower:
-                print(f"  [MATCH] Found '{keyword}' in title: {stream['title'][:50]}...")
+                team_matched = True
+                print(f"  [MATCH] Date '{matched_date_pattern}' + Team '{keyword}' in: {title[:50]}...")
                 return stream['url']
         
-        # 3. 날짜 매칭 시도 (YYYY.MM.DD 또는 MM/DD 형식)
-        match_date = game['match_at'][:10]  # YYYY-MM-DD
-        date_patterns = [
-            match_date.replace('-', '.'),  # 2025.01.02
-            match_date.replace('-', '/'),  # 2025/01/02
-            match_date[5:].replace('-', '.'),  # 01.02
-            match_date[5:].replace('-', '/'),  # 01/02
-        ]
-        
-        for date_pattern in date_patterns:
-            if date_pattern in stream['title']:
-                print(f"  [MATCH] Found date '{date_pattern}' in title: {stream['title'][:50]}...")
-                return stream['url']
+        # 날짜만 매칭되고 팀이 매칭 안되면 경고만 출력
+        if not team_matched:
+            print(f"  [WARN] Date matched but team not found: {title[:50]}...")
     
     return None
 
