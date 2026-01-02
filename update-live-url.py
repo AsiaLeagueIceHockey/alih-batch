@@ -18,6 +18,7 @@ import subprocess
 import json
 from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
+from dateutil import parser as date_parser  # 날짜 파싱용
 
 # --- 1. Supabase 클라이언트 초기화 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -122,6 +123,7 @@ def get_upcoming_games(supported_team_ids: list) -> list:
 def find_live_streams(channel_url: str) -> list:
     """
     yt-dlp를 사용하여 채널의 라이브 또는 예정된 스트림을 검색합니다.
+    스트림의 예정 시작 시간(release_timestamp)도 함께 가져옵니다.
     """
     # 라이브 탭 URL 생성
     live_url = f"{channel_url}/streams"
@@ -147,13 +149,24 @@ def find_live_streams(channel_url: str) -> list:
             if line:
                 try:
                     video_data = json.loads(line)
-                    # 라이브 또는 예정된 라이브인지 확인
+                    # 예정 시작 시간 가져오기 (Unix timestamp)
+                    release_timestamp = video_data.get('release_timestamp')
+                    timestamp = video_data.get('timestamp')
+                    
+                    # release_timestamp가 없으면 timestamp 사용
+                    scheduled_time = None
+                    if release_timestamp:
+                        scheduled_time = datetime.fromtimestamp(release_timestamp, tz=timezone.utc)
+                    elif timestamp:
+                        scheduled_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                    
                     streams.append({
                         'id': video_data.get('id'),
                         'title': video_data.get('title', ''),
                         'url': f"https://www.youtube.com/watch?v={video_data.get('id')}",
                         'is_live': video_data.get('is_live', False),
                         'live_status': video_data.get('live_status'),  # is_upcoming, is_live, was_live
+                        'scheduled_time': scheduled_time,  # 예정 시작 시간
                     })
                 except json.JSONDecodeError:
                     continue
@@ -171,15 +184,14 @@ def find_live_streams(channel_url: str) -> list:
 # --- 7. 스트림과 경기 매칭 ---
 def match_stream_to_game(streams: list, game: dict, team_by_id: dict) -> str | None:
     """
-    라이브 스트림 제목에서 상대팀 키워드와 날짜를 찾아 경기와 매칭합니다.
+    라이브 스트림의 예정 시작 시간과 경기 시간을 비교하여 매칭합니다.
     
-    매칭 전략 (날짜 검증 필수):
-    1. 스트림이 live 또는 upcoming 상태인지 확인
-    2. 제목에 경기 날짜가 포함되어 있는지 확인 (필수)
-    3. 제목에 상대팀(away_team) 키워드가 있으면 추가 점수
+    매칭 전략 (우선순위):
+    1. 스트림 예정 시작 시간이 경기 시간과 ±2시간 이내 + 팀 키워드 매칭
+    2. is_upcoming/is_live 상태 + 팀 키워드 매칭 (시간 정보 없는 경우)
+    3. 날짜 + 팀 키워드 매칭 (fallback)
     
-    연속 시리즈 경기(같은 상대팀, 다른 날짜)에서 잘못된 매핑을 방지하기 위해
-    날짜 매칭을 필수 조건으로 합니다.
+    이 방식으로 연속 시리즈 경기(1/2, 1/3, 1/4)를 정확하게 구분합니다.
     """
     away_team_id = game['away_alih_team_id']
     away_team_info = team_by_id.get(away_team_id, {})
@@ -193,33 +205,75 @@ def match_stream_to_game(streams: list, game: dict, team_by_id: dict) -> str | N
     if away_korean_name:
         away_keywords.append(away_korean_name.lower())
     
-    # 경기 날짜 패턴 생성
+    # 경기 시간 파싱 (ISO 형식)
+    game_time = date_parser.parse(game['match_at'])
+    
+    # 시간 허용 오차 (±2시간)
+    time_tolerance = timedelta(hours=2)
+    
+    # 1차: 예정 시작 시간으로 매칭 (가장 정확함)
+    for stream in streams:
+        title = stream['title']
+        title_lower = title.lower()
+        scheduled_time = stream.get('scheduled_time')
+        
+        if not scheduled_time:
+            continue
+        
+        # 시간 차이 계산
+        time_diff = abs(scheduled_time - game_time)
+        
+        if time_diff <= time_tolerance:
+            # 시간이 맞으면 팀 키워드도 확인 (추가 검증)
+            for keyword in away_keywords:
+                if keyword.lower() in title_lower:
+                    print(f"  [MATCH] Time match ({scheduled_time.strftime('%Y-%m-%d %H:%M')}) + Team '{keyword}'")
+                    print(f"    Title: {title[:60]}...")
+                    return stream['url']
+            
+            # 팀 키워드 없어도 시간이 정확히 맞으면 매칭 (같은 팀 연속 경기는 시간으로 구분)
+            print(f"  [MATCH] Time match ({scheduled_time.strftime('%Y-%m-%d %H:%M')}) - no team keyword but time matched")
+            print(f"    Title: {title[:60]}...")
+            return stream['url']
+    
+    # 2차: is_upcoming/is_live 상태 + 팀 키워드 (시간 정보 없는 경우)
+    for stream in streams:
+        title = stream['title']
+        title_lower = title.lower()
+        live_status = stream.get('live_status', '')
+        is_live_or_upcoming = (
+            stream.get('is_live', False) or
+            live_status in ['is_upcoming', 'is_live']
+        )
+        
+        if not is_live_or_upcoming:
+            continue
+        
+        # 이미 1차에서 scheduled_time 체크됨, 여기는 scheduled_time 없는 경우만
+        if stream.get('scheduled_time'):
+            continue
+        
+        for keyword in away_keywords:
+            if keyword.lower() in title_lower:
+                print(f"  [MATCH] Live/Upcoming + Team '{keyword}' (no time info)")
+                print(f"    Title: {title[:60]}...")
+                return stream['url']
+    
+    # 3차: 날짜 + 팀 키워드 매칭 (fallback - 과거 스트림용)
     match_date = game['match_at'][:10]  # YYYY-MM-DD
     date_patterns = [
         match_date.replace('-', '.'),  # 2026.01.02
         match_date.replace('-', '/'),  # 2026/01/02
         match_date[5:].replace('-', '.'),  # 01.02
         match_date[5:].replace('-', '/'),  # 01/02
-        # 일본어 날짜 형식도 추가
         f"{int(match_date[5:7])}月{int(match_date[8:10])}日",  # 1月2日
     ]
     
     for stream in streams:
         title = stream['title']
         title_lower = title.lower()
-        live_status = stream.get('live_status', '')
         
-        # 1. 라이브 또는 예정된 스트림인지 확인
-        is_relevant = (
-            stream.get('is_live', False) or
-            live_status in ['is_upcoming', 'is_live'] or
-            any(kw in title_lower for kw in LIVE_KEYWORDS)
-        )
-        
-        if not is_relevant:
-            continue
-        
-        # 2. 날짜 매칭 확인 (필수 조건)
+        # 날짜 매칭 확인
         date_matched = False
         matched_date_pattern = None
         for date_pattern in date_patterns:
@@ -229,20 +283,14 @@ def match_stream_to_game(streams: list, game: dict, team_by_id: dict) -> str | N
                 break
         
         if not date_matched:
-            # 날짜가 없으면 이 스트림은 스킵
             continue
         
-        # 3. 상대팀 키워드 매칭 (추가 검증)
-        team_matched = False
+        # 날짜 + 팀 키워드 매칭
         for keyword in away_keywords:
             if keyword.lower() in title_lower:
-                team_matched = True
-                print(f"  [MATCH] Date '{matched_date_pattern}' + Team '{keyword}' in: {title[:50]}...")
+                print(f"  [MATCH] Date '{matched_date_pattern}' + Team '{keyword}'")
+                print(f"    Title: {title[:50]}...")
                 return stream['url']
-        
-        # 날짜만 매칭되고 팀이 매칭 안되면 경고만 출력
-        if not team_matched:
-            print(f"  [WARN] Date matched but team not found: {title[:50]}...")
     
     return None
 
