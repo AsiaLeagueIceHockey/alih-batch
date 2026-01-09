@@ -16,20 +16,27 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. YouTube 팀명 -> DB 팀명 매핑 ---
 # YouTube 영상 제목에서 사용되는 팀명을 DB의 english_name으로 매핑
+# DB 팀명: HL ANYANG, EAGLES, FREEBLADES, GRITS, ICEBUCKS, STARS
 YOUTUBE_TO_DB_TEAM_MAP = {
-    "hl anyang": "HL Anyang",
-    "nikko icebucks": "NIKKO ICEBUCKS",
-    "tohoku freeblades": "TOHOKU FREE BLADES",
-    "stars kobe": "STARS KOBE",
-    "yokohama grits": "YOKOHAMA GRITS",
-    "red eagles hokkaido": "RED EAGLES HOKKAIDO",
-    # 추가 변형 (대소문자 무시)
-    "anyang": "HL Anyang",
-    "icebucks": "NIKKO ICEBUCKS",
-    "freeblades": "TOHOKU FREE BLADES",
-    "kobe": "STARS KOBE",
-    "grits": "YOKOHAMA GRITS",
-    "red eagles": "RED EAGLES HOKKAIDO",
+    # 정확한 팀명 매칭
+    "hl anyang": "HL ANYANG",
+    "nikko icebucks": "ICEBUCKS",
+    "tohoku freeblades": "FREEBLADES",
+    "tohoku free blades": "FREEBLADES",
+    "stars kobe": "STARS",
+    "yokohama grits": "GRITS",
+    "red eagles hokkaido": "EAGLES",
+    "red eagles": "EAGLES",
+    # 짧은 형태
+    "anyang": "HL ANYANG",
+    "icebucks": "ICEBUCKS",
+    "ice bucks": "ICEBUCKS",
+    "freeblades": "FREEBLADES",
+    "free blades": "FREEBLADES",
+    "kobe": "STARS",
+    "stars": "STARS",
+    "grits": "GRITS",
+    "eagles": "EAGLES",
 }
 
 def normalize_team_name(name: str) -> str:
@@ -51,14 +58,16 @@ def normalize_team_name(name: str) -> str:
 def get_team_maps():
     """
     팀 정보를 가져와서 두 개의 맵을 반환:
-    1. english_name -> team_id
+    1. english_name (소문자) -> team_id
     2. team_id -> korean_name (name)
     """
     try:
         response = supabase.table('alih_teams').select('id, english_name, name').execute()
         if response.data:
-            id_map = {team['english_name']: team['id'] for team in response.data}
+            # 소문자로 정규화하여 저장
+            id_map = {team['english_name'].lower(): team['id'] for team in response.data}
             korean_name_map = {team['id']: team['name'] for team in response.data}
+            print(f"DEBUG: Team ID map keys: {list(id_map.keys())}")
             return id_map, korean_name_map
         return {}, {}
     except Exception as e:
@@ -150,8 +159,9 @@ def match_and_update_schedule(video: dict, parsed_info: dict, team_id_map: dict,
     team_a = parsed_info['team_a']
     team_b = parsed_info['team_b']
     
-    team_a_id = team_id_map.get(team_a)
-    team_b_id = team_id_map.get(team_b)
+    # 소문자로 정규화하여 조회
+    team_a_id = team_id_map.get(team_a.lower())
+    team_b_id = team_id_map.get(team_b.lower())
     
     if not team_a_id or not team_b_id:
         print(f"  [SKIP] Team not found in DB: {team_a} or {team_b}")
