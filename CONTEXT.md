@@ -189,12 +189,12 @@ alih-batch/
 **YouTube 팀명 매핑**:
 | YouTube 팀명 | DB `english_name` |
 |------------|-------------------|
-| HL Anyang | HL Anyang |
-| Nikko IceBucks | NIKKO ICEBUCKS |
-| Tohoku FreeBlades | TOHOKU FREE BLADES |
-| Stars Kobe | STARS KOBE |
-| Yokohama Grits | YOKOHAMA GRITS |
-| Red Eagles Hokkaido | RED EAGLES HOKKAIDO |
+| HL Anyang | HL ANYANG |
+| Nikko IceBucks | ICEBUCKS |
+| Tohoku FreeBlades | FREEBLADES |
+| Stars Kobe | STARS |
+| Yokohama Grits | GRITS |
+| Red Eagles Hokkaido | EAGLES |
 
 **의존성**: `yt-dlp`, `deep-translator`, `supabase`
 
@@ -299,12 +299,12 @@ HTML에서 사용하는 팀 이름과 DB의 팀 이름 간 매핑:
 
 | HTML 팀명 | DB `english_name` |
 |----------|-------------------|
-| HL ANYANG ICE HOCKEY CLUB | HL Anyang |
-| RED EAGLES HOKKAIDO | RED EAGLES HOKKAIDO |
-| NIKKO ICEBUCKS | NIKKO ICEBUCKS |
-| YOKOHAMA GRITS | YOKOHAMA GRITS |
-| TOHOKU FREEBLADES | TOHOKU FREE BLADES |
-| STARS KOBE | STARS KOBE |
+| HL ANYANG ICE HOCKEY CLUB | HL ANYANG |
+| RED EAGLES HOKKAIDO | EAGLES |
+| NIKKO ICEBUCKS | ICEBUCKS |
+| YOKOHAMA GRITS | GRITS |
+| TOHOKU FREEBLADES | FREEBLADES |
+| STARS KOBE | STARS |
 
 ---
 

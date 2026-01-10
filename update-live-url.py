@@ -31,20 +31,21 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. 팀별 유튜브 채널 매핑 (4팀만) ---
 # english_name 기반으로 매핑 (DB에서 team_id를 동적으로 가져옴)
+# DB english_name: HL ANYANG, EAGLES, FREEBLADES, GRITS, ICEBUCKS, STARS
 TEAM_YOUTUBE_CHANNELS = {
-    "HL Anyang": {
+    "HL ANYANG": {
         "channel_url": "https://www.youtube.com/@hlanyang",
         "language": "ko",
     },
-    "RED EAGLES HOKKAIDO": {
+    "EAGLES": {
         "channel_url": "https://www.youtube.com/@OjiEaglesFan",
         "language": "ja",
     },
-    "TOHOKU FREE BLADES": {
+    "FREEBLADES": {
         "channel_url": "https://www.youtube.com/@freeblades2009",
         "language": "ja",
     },
-    "YOKOHAMA GRITS": {
+    "GRITS": {
         "channel_url": "https://www.youtube.com/@grits5937",
         "language": "ja",
     },
@@ -52,14 +53,14 @@ TEAM_YOUTUBE_CHANNELS = {
 
 # --- 3. 팀명 매칭용 키워드 (한글, 영문, 일본어) ---
 # 라이브 스트림 제목에서 상대팀을 매칭하기 위한 키워드
-# english_name 기반으로 매핑
+# english_name 기반으로 매핑 (DB english_name: HL ANYANG, EAGLES, FREEBLADES, GRITS, ICEBUCKS, STARS)
 TEAM_KEYWORDS = {
-    "HL Anyang": ["안양", "anyang", "hla", "アニャン", "ハラ", "hl안양"],
-    "RED EAGLES HOKKAIDO": ["레드이글스", "red eagles", "hokkaido", "reh", "レッドイーグルス", "北海道", "王子"],
-    "TOHOKU FREE BLADES": ["프리블레이즈", "freeblades", "tohoku", "tfb", "フリーブレイズ", "東北"],
-    "NIKKO ICEBUCKS": ["아이스벅스", "icebucks", "nikko", "nib", "アイスバックス", "日光"],
-    "YOKOHAMA GRITS": ["그리츠", "grits", "yokohama", "yok", "グリッツ", "横浜"],
-    "STARS KOBE": ["고베", "kobe", "stars", "stk", "スターズ", "神戸"],
+    "HL ANYANG": ["안양", "anyang", "hla", "アニャン", "ハラ", "hl안양"],
+    "EAGLES": ["레드이글스", "red eagles", "hokkaido", "reh", "レッドイーグルス", "北海道", "王子", "eagles"],
+    "FREEBLADES": ["프리블레이즈", "freeblades", "tohoku", "tfb", "フリーブレイズ", "東北"],
+    "ICEBUCKS": ["아이스벅스", "icebucks", "nikko", "nib", "アイスバックス", "日光"],
+    "GRITS": ["그리츠", "grits", "yokohama", "yok", "グリッツ", "横浜"],
+    "STARS": ["고베", "kobe", "stars", "stk", "スターズ", "神戸"],
 }
 
 # 라이브 스트림 제목에서 사용될 수 있는 키워드 (경기 중계임을 나타내는)
