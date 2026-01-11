@@ -114,8 +114,12 @@ def capture_page(url: str, filename: str) -> str:
 def capture_weekly_stats() -> str:
     return capture_page("https://alhockey.fans/instagram/weekly-stats", "weekly_stats.png")
 
-def capture_standings() -> str:
-    return capture_page("https://alhockey.fans/instagram/standings", "standings.png")
+def capture_standings() -> list[str]:
+    """Standings 이미지 2장 캡처 (골/어시스트)"""
+    images = []
+    images.append(capture_page("https://alhockey.fans/instagram/standings", "standings_goal.png"))
+    images.append(capture_page("https://alhockey.fans/instagram/standings?type=assist", "standings_assist.png"))
+    return images
 
 
 # =============================================================================
@@ -310,8 +314,8 @@ def main():
         print(f"❌ Weekly Stats 캡처 실패: {e}")
         
     try:
-        standings_img = capture_standings()
-        images.append(standings_img)
+        standings_imgs = capture_standings()
+        images.extend(standings_imgs)
     except Exception as e:
         print(f"❌ Standings 캡처 실패: {e}")
     
