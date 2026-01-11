@@ -43,7 +43,7 @@ alih-batch/
 
 | 테이블명 | 설명 | 주요 컬럼 |
 |---------|------|---------|
-| `alih_teams` | 팀 정보 | `id`, `english_name`, `team_code` |
+| `alih_teams` | 팀 정보 | `id`, `name`, `english_name`, `japanese_name`, `team_code`, `youtube_channel_id` |
 | `alih_schedule` | 경기 일정 | `id`, `game_no`, `match_at`, `home_alih_team_id`, `away_alih_team_id`, `home_alih_team_score`, `away_alih_team_score`, `highlight_url`, `highlight_title`, `live_url` |
 | `alih_game_details` | 경기 상세 정보 (로스터, 골, 페널티) | `game_no` (UNIQUE), `spectators`, `game_info`, `game_summary`, `goalkeepers`, `home_roster`, `away_roster`, `goals`, `penalties` |
 | `alih_standings` | 팀 순위표 | `team_id` (UNIQUE), `rank`, `games_played`, `win_60min`, `win_ot`, `win_pss`, `lose_pss`, `lose_ot`, `lose_60min`, `goals_for`, `goals_against`, `points` |
@@ -269,6 +269,31 @@ alih-batch/
 
 ---
 
+### 10. `x_content.py` (Python)
+
+**목적**: X(Twitter) 일본어 컨텐츠 자동 생성 (@alhockey_fans 계정용)
+
+**실행 주기**: 
+- Series Review: 매주 일요일 20:00 KST
+- Series Preview: 매주 목요일 20:00 KST
+
+**주요 기능**:
+1. `alih_schedule`에서 지난/다음 주 경기 조회
+2. `alih_teams`에서 일본어 팀명 조회
+3. Groq AI로 일본어 컨텐츠 생성
+4. 경기별 링크 포함: `https://alhockey.fans/schedule/{game_no}?lang=jp`
+5. Slack Webhook으로 컨텐츠 전송 (복사하여 X에 게시)
+
+**컨텐츠 유형**:
+| 유형 | 발행일 | 내용 |
+|------|--------|------|
+| Review | 일요일 | 지난 주 경기 결과 요약, 순위 변동 |
+| Preview | 목요일 | 다음 주 경기 예고, 관전 포인트 |
+
+**의존성**: `supabase`, `groq`, `requests`
+
+---
+
 ## ⚙️ GitHub Actions 워크플로우
 
 | 워크플로우 | 스케줄 | 실행 스크립트 | 환경 |
@@ -279,6 +304,7 @@ alih-batch/
 | `update-standings.yaml` | 30분 간격 | `scrape-standings.py` | Python 3.10 |
 | `update-stat.yaml` | 매시 정각 | `scrape-stat.py`, `scrape-players.py` | Python 3.10 |
 | `update-highlights.yaml` | 매시 30분 | `scrape-highlights.py` | Python 3.10 + yt-dlp |
+| `x-content.yaml` | 일요일/목요일 20:00 KST | `x_content.py` | Python 3.10 + Groq |
 | `update-live-url.yaml` | 15분 간격 | `update-live-url.py` | Python 3.10 + yt-dlp |
 
 ### GitHub Secrets 필요 변수:
