@@ -111,15 +111,15 @@ def capture_page(url: str, filename: str) -> str:
         browser.close()
         return filename
 
-def capture_weekly_stats() -> str:
-    return capture_page("https://alhockey.fans/instagram/weekly-stats", "weekly_stats.png")
-
-def capture_standings() -> list[str]:
-    """Standings 이미지 2장 캡처 (골/어시스트)"""
+def capture_weekly_stats() -> list[str]:
+    """주간 통계 이미지 2장 캡처 (골/어시스트)"""
     images = []
-    images.append(capture_page("https://alhockey.fans/instagram/standings", "standings_goal.png"))
-    images.append(capture_page("https://alhockey.fans/instagram/standings?type=assist", "standings_assist.png"))
+    images.append(capture_page("https://alhockey.fans/instagram/weekly-stats", "weekly_stats.png"))
+    images.append(capture_page("https://alhockey.fans/instagram/weekly-stats?type=assist", "weekly_stats_assist.png"))
     return images
+
+def capture_standings() -> str:
+    return capture_page("https://alhockey.fans/instagram/standings", "standings.png")
 
 
 # =============================================================================
@@ -308,14 +308,14 @@ def main():
     # 캡처
     images = []
     try:
-        stats_img = capture_weekly_stats()
-        images.append(stats_img)
+        stats_imgs = capture_weekly_stats()
+        images.extend(stats_imgs)
     except Exception as e:
         print(f"❌ Weekly Stats 캡처 실패: {e}")
         
     try:
-        standings_imgs = capture_standings()
-        images.extend(standings_imgs)
+        standings_img = capture_standings()
+        images.append(standings_img)
     except Exception as e:
         print(f"❌ Standings 캡처 실패: {e}")
     
