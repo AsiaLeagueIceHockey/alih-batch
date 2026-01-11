@@ -1,10 +1,14 @@
 """
-X(Twitter) 일본어 컨텐츠 생성 스크립트
+X(Twitter) 일본어 컨텐츠 생성 스크립트 - 스레드 형식
 
 GitHub Actions에서 실행되어:
 1. Series Review (일요일): 지난 주 경기 결과 요약
 2. Series Preview (목요일): 다음 주 경기 예고
-3. Slack으로 텍스트 전송 (복사하여 X에 게시)
+3. Slack으로 스레드 형식 텍스트 전송 (복사하여 X에 게시)
+
+X 글자수 제한(280자) 대응:
+- 첫 트윗: 요약 + 해시태그
+- 후속 트윗: 개별 경기 정보 (리플라이)
 """
 
 import os
@@ -21,6 +25,9 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 
+# X 글자수 제한
+X_CHAR_LIMIT = 280
+
 # --- Supabase 클라이언트 ---
 supabase: Client = None
 
@@ -36,34 +43,24 @@ def init_supabase():
 # =============================================================================
 
 def get_team_info() -> dict:
-    """
-    alih_teams에서 팀 정보 조회 (일본어 이름 포함)
-    Returns: {team_id: {'name': 한국어명, 'english_name': 영어명, 'japanese_name': 일본어명}}
-    """
+    """alih_teams에서 팀 정보 조회 (일본어 이름 포함)"""
     response = supabase.table('alih_teams') \
         .select('id, name, english_name, japanese_name') \
         .execute()
-    
     return {team['id']: team for team in response.data}
 
 
 def get_standings_info() -> dict:
-    """
-    alih_standings에서 순위 정보 조회
-    """
+    """alih_standings에서 순위 정보 조회"""
     response = supabase.table('alih_standings') \
         .select('team_id, rank, points, games_played') \
         .order('rank') \
         .execute()
-    
     return {s['team_id']: s for s in response.data}
 
 
 def get_weekly_results() -> list:
-    """
-    지난 7일간(오늘 포함) 완료된 경기 조회 (Review용)
-    KST 기준
-    """
+    """지난 7일간 완료된 경기 조회 (Review용)"""
     now_kst = datetime.utcnow() + timedelta(hours=9)
     today_end = now_kst.replace(hour=23, minute=59, second=59, microsecond=999999)
     week_start = (now_kst - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -75,22 +72,16 @@ def get_weekly_results() -> list:
         .order('match_at') \
         .execute()
     
-    # 점수가 있는(완료된) 경기만 필터링
     return [m for m in response.data if m.get('home_alih_team_score') is not None]
 
 
 def get_upcoming_series() -> list:
-    """
-    다음 주 예정된 경기 조회 (Preview용)
-    - 다음 금요일부터 그 다음주 일요일까지
-    KST 기준
-    """
+    """다음 주 예정된 경기 조회 (Preview용)"""
     now_kst = datetime.utcnow() + timedelta(hours=9)
     
-    # 다음 금요일 찾기 (오늘이 목요일이라면 내일)
     days_until_friday = (4 - now_kst.weekday()) % 7
     if days_until_friday == 0:
-        days_until_friday = 1  # 목요일에 실행, 내일이 금요일
+        days_until_friday = 1
     
     next_friday = now_kst + timedelta(days=days_until_friday)
     series_start = next_friday.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -107,62 +98,18 @@ def get_upcoming_series() -> list:
 
 
 # =============================================================================
-# 2. AI 컨텐츠 생성 (Groq) - 일본어
+# 2. 헬퍼 함수
 # =============================================================================
 
 def get_jp_team_name(team_info: dict, team_id: int) -> str:
-    """팀 일본어 이름 반환 (없으면 영어 이름)"""
+    """팀 일본어 이름 반환"""
     team = team_info.get(team_id, {})
     return team.get('japanese_name') or team.get('english_name', 'Unknown')
 
 
-def format_results_for_review(matches: list, team_info: dict) -> str:
-    """Review용 경기 결과 포맷"""
-    lines = []
-    for match in matches:
-        home_id = match['home_alih_team_id']
-        away_id = match['away_alih_team_id']
-        home_name = get_jp_team_name(team_info, home_id)
-        away_name = get_jp_team_name(team_info, away_id)
-        home_score = match.get('home_alih_team_score', 0)
-        away_score = match.get('away_alih_team_score', 0)
-        game_no = match['game_no']
-        
-        # 날짜
-        match_dt = datetime.fromisoformat(match['match_at'].replace('Z', '+00:00')) + timedelta(hours=9)
-        date_str = match_dt.strftime('%m/%d')
-        
-        lines.append(f"• {date_str} {home_name} {home_score}-{away_score} {away_name}")
-        lines.append(f"  👉 https://alhockey.fans/schedule/{game_no}?lang=jp")
-    
-    return "\n".join(lines) if lines else "今週の試合はありませんでした。"
-
-
-def format_matches_for_preview(matches: list, team_info: dict) -> str:
-    """Preview용 경기 일정 포맷"""
-    lines = []
-    for i, match in enumerate(matches, 1):
-        home_id = match['home_alih_team_id']
-        away_id = match['away_alih_team_id']
-        home_name = get_jp_team_name(team_info, home_id)
-        away_name = get_jp_team_name(team_info, away_id)
-        game_no = match['game_no']
-        
-        # 날짜/시간
-        match_dt = datetime.fromisoformat(match['match_at'].replace('Z', '+00:00')) + timedelta(hours=9)
-        datetime_str = match_dt.strftime('%m/%d %H:%M')
-        
-        lines.append(f"{i}️⃣ {home_name} vs {away_name}")
-        lines.append(f"   📅 {datetime_str}")
-        lines.append(f"   👉 https://alhockey.fans/schedule/{game_no}?lang=jp")
-    
-    return "\n".join(lines) if lines else "来週の試合はありません。"
-
-
 def format_standings_jp(team_info: dict, standings: dict) -> str:
-    """현재 순위표를 일본어로 포맷"""
+    """순위표 포맷"""
     sorted_standings = sorted(standings.values(), key=lambda x: x.get('rank', 99))
-    
     lines = []
     for s in sorted_standings:
         team_id = s['team_id']
@@ -170,104 +117,108 @@ def format_standings_jp(team_info: dict, standings: dict) -> str:
         rank = s.get('rank', '?')
         points = s.get('points', 0)
         lines.append(f"{rank}位 {name} ({points}pts)")
-    
     return "\n".join(lines)
 
 
-def generate_hashtags(matches: list, team_info: dict) -> str:
-    """경기에 등장한 팀 기반 해시태그 생성"""
-    team_ids = set()
-    for match in matches:
-        team_ids.add(match['home_alih_team_id'])
-        team_ids.add(match['away_alih_team_id'])
-    
-    # 기본 해시태그
-    tags = ["#アジアリーグアイスホッケー", "#ALIH", "#アイスホッケー"]
-    
-    # 팀별 해시태그 (일본어 이름 기반, 공백 제거)
-    for team_id in team_ids:
-        jp_name = get_jp_team_name(team_info, team_id)
-        if jp_name and jp_name != 'Unknown':
-            clean_name = jp_name.replace(" ", "").replace("　", "")
-            tags.append(f"#{clean_name}")
-    
-    return " ".join(tags)
+def generate_base_hashtags() -> str:
+    """기본 해시태그"""
+    return "#アジアリーグ #ALIH #アイスホッケー"
 
 
-def generate_review_content(matches: list, team_info: dict, standings: dict) -> str:
-    """Series Review 컨텐츠 생성 (Groq AI)"""
+# =============================================================================
+# 3. 스레드 컨텐츠 생성 (Groq AI)
+# =============================================================================
+
+def generate_review_thread(matches: list, team_info: dict, standings: dict) -> list[str]:
+    """
+    Series Review 스레드 생성
+    Returns: [첫 트윗, 리플라이1, 리플라이2, ...]
+    """
     if not GROQ_API_KEY:
         print("⚠️ GROQ_API_KEY가 설정되지 않음.")
-        return None
+        return []
     
     client = Groq(api_key=GROQ_API_KEY)
     
-    # 날짜 범위
     now_kst = datetime.utcnow() + timedelta(hours=9)
     week_start = now_kst - timedelta(days=6)
     date_range = f"{week_start.strftime('%m/%d')}〜{now_kst.strftime('%m/%d')}"
     
-    results_text = format_results_for_review(matches, team_info)
+    # 경기 정보 준비
+    match_details = []
+    for match in matches:
+        home_name = get_jp_team_name(team_info, match['home_alih_team_id'])
+        away_name = get_jp_team_name(team_info, match['away_alih_team_id'])
+        home_score = match.get('home_alih_team_score', 0)
+        away_score = match.get('away_alih_team_score', 0)
+        game_no = match['game_no']
+        match_dt = datetime.fromisoformat(match['match_at'].replace('Z', '+00:00')) + timedelta(hours=9)
+        date_str = match_dt.strftime('%m/%d')
+        
+        match_details.append({
+            'date': date_str,
+            'home': home_name,
+            'away': away_name,
+            'home_score': home_score,
+            'away_score': away_score,
+            'game_no': game_no,
+            'link': f"https://alhockey.fans/schedule/{game_no}?lang=jp"
+        })
+    
     standings_text = format_standings_jp(team_info, standings)
-    hashtags = generate_hashtags(matches, team_info)
     
     # 팀 정보 컨텍스트
     team_context = "\n".join([
-        f"- {t.get('japanese_name', t.get('english_name'))} (英語: {t['english_name']})"
+        f"- {t.get('japanese_name', t.get('english_name'))}"
         for t in team_info.values() if t.get('japanese_name') or t.get('english_name')
     ])
     
-    example = """📊 今週のアジアリーグ結果 (1/6〜1/12) 🏒
+    prompt = f"""あなたはアジアリーグアイスホッケーのX(@alhockey_fans)運営者です。
+今週の試合結果をX(Twitter)のスレッド形式で投稿します。
 
-🔥 試合結果
-• 1/6 HLアンヤン 4-2 日光アイスバックス
-  👉 https://alhockey.fans/schedule/123?lang=jp
-• 1/7 レッドイーグルス北海道 3-1 横浜グリッツ
-  👉 https://alhockey.fans/schedule/124?lang=jp
-• 1/8 東北フリーブレイズ 2-3 スターズ神戸 (OT)
-  👉 https://alhockey.fans/schedule/125?lang=jp
+【重要】各ツイートは必ず280文字以内にしてください。
 
-📈 現在の順位
-1位 レッドイーグルス北海道 (32pts)
-2位 HLアンヤン (28pts)
-3位 日光アイスバックス (25pts)
-...
+## スレッド構成
+1. **メインツイート（1つ目）**: 今週の総括要約 + ハッシュタグ
+2. **リプライツイート（2つ目以降）**: 各試合ごとに1ツイート
 
-激戦が続くアジアリーグ！来週も注目試合が盛りだくさん！🔥
-
-詳しい情報は👉 @alhockey_fans をフォロー！
-🔗 https://alhockey.fans
-
-#アジアリーグアイスホッケー #ALIH #アイスホッケー #HLアンヤン"""
-    
-    prompt = f"""あなたはアジアリーグアイスホッケーのXアカウント運営者です。
-今週の試合結果をまとめた「シリーズレビュー」投稿を日本語で作成してください。
-
-[チーム情報 - 必ずこの日本語名を使用してください]
+## チーム情報
 {team_context}
 
-[今週の試合結果 - {date_range}]
-{results_text}
+## 今週の試合結果 ({date_range})
+{[f"{m['date']} {m['home']} {m['home_score']}-{m['away_score']} {m['away']}" for m in match_details]}
 
-[現在の順位表]
+## 現在の順位
 {standings_text}
 
-[作成例]
-{example}
+## 出力形式（JSONで出力）
+以下の形式で出力してください：
+{{
+  "main_tweet": "メインツイートの内容（280文字以内、ハッシュタグ含む）",
+  "reply_tweets": [
+    "1試合目のツイート（280文字以内）",
+    "2試合目のツイート（280文字以内）",
+    ...
+  ]
+}}
 
-[要件]
-1. 各試合結果を簡潔に記載し、各試合ごとにリンクを含める
-2. 現在の順位状況を記載
-3. 絵文字を効果的に使用（🏒❄️🔥🎯など）
-4. 最後に @alhockey_fans と https://alhockey.fans を含める
-5. ハッシュタグ: {hashtags}
-6. X(Twitter)の280文字制限は気にせず、必要な情報を全て含めてください
-7. 日本のアイスホッケーファンに親しみやすい文体で
+## メインツイートの要件
+- 今週の結果の簡潔な総括（例：「激戦の1週間！首位レッドイーグルスが2連勝🔥」）
+- 絵文字使用（🏒❄️🔥など）
+- 最後に #アジアリーグ #ALIH #アイスホッケー
+- 280文字以内
 
-投稿文を作成してください。"""
+## リプライツイートの要件（各試合ごと）
+- 試合日時と対戦カード
+- スコアと簡単な一言コメント
+- 詳細リンク使用: {match_details[0]['link'] if match_details else 'https://alhockey.fans/schedule/XXX?lang=jp'}
+- 280文字以内
+- 絵文字使用
+
+必ずJSON形式で出力してください。"""
 
     print(f"\n{'='*60}")
-    print(f"📤 [Groq API] Series Review プロンプト送信")
+    print(f"📤 [Groq API] Series Review スレッド生成")
     print(f"{'='*60}")
     
     try:
@@ -275,21 +226,38 @@ def generate_review_content(matches: list, team_info: dict, standings: dict) -> 
             model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}]
         )
-        return completion.choices[0].message.content
+        response_text = completion.choices[0].message.content
+        
+        # JSON 파싱 시도
+        import json
+        # JSON 블록 추출
+        json_match = re.search(r'\{[\s\S]*\}', response_text)
+        if json_match:
+            data = json.loads(json_match.group())
+            tweets = [data.get('main_tweet', '')]
+            tweets.extend(data.get('reply_tweets', []))
+            return tweets
+        else:
+            print("⚠️ JSON 파싱 실패, 원본 반환")
+            return [response_text]
+            
     except Exception as e:
         print(f"❌ Groq API エラー: {e}")
-        return None
+        return []
 
 
-def generate_preview_content(matches: list, team_info: dict, standings: dict) -> str:
-    """Series Preview 컨텐츠 생성 (Groq AI)"""
+def generate_preview_thread(matches: list, team_info: dict, standings: dict) -> list[str]:
+    """
+    Series Preview 스레드 생성
+    Returns: [첫 트윗, 리플라이1, 리플라이2, ...]
+    """
     if not GROQ_API_KEY:
         print("⚠️ GROQ_API_KEY가 설정되지 않음.")
-        return None
+        return []
     
     client = Groq(api_key=GROQ_API_KEY)
     
-    # 날짜 범위 계산
+    # 날짜 범위
     if matches:
         first_match = datetime.fromisoformat(matches[0]['match_at'].replace('Z', '+00:00')) + timedelta(hours=9)
         last_match = datetime.fromisoformat(matches[-1]['match_at'].replace('Z', '+00:00')) + timedelta(hours=9)
@@ -298,71 +266,84 @@ def generate_preview_content(matches: list, team_info: dict, standings: dict) ->
         now_kst = datetime.utcnow() + timedelta(hours=9)
         date_range = f"{(now_kst + timedelta(days=1)).strftime('%m/%d')}〜"
     
-    matches_text = format_matches_for_preview(matches, team_info)
+    # 경기 정보 준비
+    match_details = []
+    for match in matches:
+        home_name = get_jp_team_name(team_info, match['home_alih_team_id'])
+        away_name = get_jp_team_name(team_info, match['away_alih_team_id'])
+        game_no = match['game_no']
+        match_dt = datetime.fromisoformat(match['match_at'].replace('Z', '+00:00')) + timedelta(hours=9)
+        datetime_str = match_dt.strftime('%m/%d %H:%M')
+        
+        # 순위 정보
+        home_rank = standings.get(match['home_alih_team_id'], {}).get('rank', '?')
+        away_rank = standings.get(match['away_alih_team_id'], {}).get('rank', '?')
+        
+        match_details.append({
+            'datetime': datetime_str,
+            'home': home_name,
+            'away': away_name,
+            'home_rank': home_rank,
+            'away_rank': away_rank,
+            'game_no': game_no,
+            'link': f"https://alhockey.fans/schedule/{game_no}?lang=jp"
+        })
+    
     standings_text = format_standings_jp(team_info, standings)
-    hashtags = generate_hashtags(matches, team_info)
     
     # 팀 정보 컨텍스트
     team_context = "\n".join([
-        f"- {t.get('japanese_name', t.get('english_name'))} (英語: {t['english_name']})"
+        f"- {t.get('japanese_name', t.get('english_name'))}"
         for t in team_info.values() if t.get('japanese_name') or t.get('english_name')
     ])
     
-    example = """🔮 来週のアジアリーグプレビュー (1/13〜1/19) 🏒
+    prompt = f"""あなたはアジアリーグアイスホッケーのX(@alhockey_fans)運営者です。
+来週の試合予定をX(Twitter)のスレッド形式で投稿します。
 
-⚔️ 注目の対戦
+【重要】各ツイートは必ず280文字以内にしてください。
 
-1️⃣ HLアンヤン vs レッドイーグルス北海道
-   首位攻防戦！🔥
-   📅 1/13 19:00
-   👉 https://alhockey.fans/schedule/130?lang=jp
+## スレッド構成
+1. **メインツイート（1つ目）**: 来週の見どころ総括 + ハッシュタグ
+2. **リプライツイート（2つ目以降）**: 各試合ごとに1ツイート
 
-2️⃣ 東北フリーブレイズ vs 日光アイスバックス  
-   中位争いの直接対決！
-   📅 1/14 18:00
-   👉 https://alhockey.fans/schedule/131?lang=jp
-
-📈 現在の順位
-1位 レッドイーグルス北海道 (32pts)
-2位 HLアンヤン (28pts)
-...
-
-今シーズンも終盤戦！熱い戦いをお見逃しなく！🔥
-
-試合情報は👉 @alhockey_fans
-🔗 https://alhockey.fans
-
-#アジアリーグアイスホッケー #ALIH #レッドイーグルス"""
-    
-    prompt = f"""あなたはアジアリーグアイスホッケーのXアカウント運営者です。
-来週の試合予定をまとめた「シリーズプレビュー」投稿を日本語で作成してください。
-
-[チーム情報 - 必ずこの日本語名を使用してください]
+## チーム情報
 {team_context}
 
-[来週の試合予定 - {date_range}]
-{matches_text}
+## 来週の試合予定 ({date_range})
+{[f"{m['datetime']} {m['home']}({m['home_rank']}位) vs {m['away']}({m['away_rank']}位)" for m in match_details]}
 
-[現在の順位表 - 対戦の重要度を判断するのに参考にしてください]
+## 現在の順位
 {standings_text}
 
-[作成例]
-{example}
+## 出力形式（JSONで出力）
+以下の形式で出力してください：
+{{
+  "main_tweet": "メインツイートの内容（280文字以内、ハッシュタグ含む）",
+  "reply_tweets": [
+    "1試合目のツイート（280文字以内）",
+    "2試合目のツイート（280文字以内）",
+    ...
+  ]
+}}
 
-[要件]
-1. 各試合の見どころ・注目ポイントを簡潔に記載
-2. 順位争いや対戦カードの重要性を言及
-3. 各試合ごとにリンクを含める
-4. 絵文字を効果的に使用（🏒⚔️🔥📅など）
-5. 最後に @alhockey_fans と https://alhockey.fans を含める
-6. ハッシュタグ: {hashtags}
-7. 日本のアイスホッケーファンにワクワク感を与える文体で
-8. 注意: 選手名や個人記録など、提供されていない情報は絶対に言及しないでください
+## メインツイートの要件
+- 来週の見どころの簡潔な総括（例：「来週は首位決戦！見逃せない熱い1週間🔥」）
+- 絵文字使用（🏒⚔️🔥📅など）
+- 最後に #アジアリーグ #ALIH #アイスホッケー
+- 280文字以内
 
-投稿文を作成してください。"""
+## リプライツイートの要件（各試合ごと）
+- 試合日時と対戦カード（順位含む）
+- 見どころや注目ポイントを一言で
+- 詳細リンク使用: {match_details[0]['link'] if match_details else 'https://alhockey.fans/schedule/XXX?lang=jp'}
+- 280文字以内
+- 絵文字使用
+- 選手名は使用しない（データがないため）
+
+必ずJSON形式で出力してください。"""
 
     print(f"\n{'='*60}")
-    print(f"📤 [Groq API] Series Preview プロンプト送信")
+    print(f"📤 [Groq API] Series Preview スレッド生成")
     print(f"{'='*60}")
     
     try:
@@ -370,14 +351,27 @@ def generate_preview_content(matches: list, team_info: dict, standings: dict) ->
             model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}]
         )
-        return completion.choices[0].message.content
+        response_text = completion.choices[0].message.content
+        
+        # JSON 파싱 시도
+        import json
+        json_match = re.search(r'\{[\s\S]*\}', response_text)
+        if json_match:
+            data = json.loads(json_match.group())
+            tweets = [data.get('main_tweet', '')]
+            tweets.extend(data.get('reply_tweets', []))
+            return tweets
+        else:
+            print("⚠️ JSON 파싱 실패, 원본 반환")
+            return [response_text]
+            
     except Exception as e:
         print(f"❌ Groq API エラー: {e}")
-        return None
+        return []
 
 
 # =============================================================================
-# 3. Slack 전송
+# 4. Slack 전송
 # =============================================================================
 
 def clean_markdown(text: str) -> str:
@@ -389,45 +383,74 @@ def clean_markdown(text: str) -> str:
     return text
 
 
-def send_to_slack(content: str, content_type: str):
-    """Slack Webhook으로 컨텐츠 전송"""
-    if not SLACK_WEBHOOK_URL:
-        print("⚠️ SLACK_WEBHOOK_URL 미설정. Slack 전송 생략.")
-        print("\n" + "="*60)
-        print("📝 생성된 컨텐츠:")
-        print("="*60)
-        print(content)
+def send_thread_to_slack(tweets: list[str], content_type: str):
+    """Slack Webhook으로 스레드 형식 컨텐츠 전송"""
+    if not tweets:
+        print("⚠️ 전송할 트윗이 없습니다.")
         return
     
     emoji = "📊" if content_type == "review" else "🔮"
     title = "Series Review" if content_type == "review" else "Series Preview"
     
-    clean_content = clean_markdown(content)
+    # 각 트윗 글자수 체크
+    for i, tweet in enumerate(tweets):
+        char_count = len(tweet)
+        status = "✅" if char_count <= X_CHAR_LIMIT else "⚠️ 초과!"
+        print(f"  Tweet {i+1}: {char_count}자 {status}")
     
+    if not SLACK_WEBHOOK_URL:
+        print("⚠️ SLACK_WEBHOOK_URL 미설정. Slack 전송 생략.")
+        print("\n" + "="*60)
+        print("📝 생성된 스레드:")
+        print("="*60)
+        for i, tweet in enumerate(tweets):
+            label = "🧵 메인" if i == 0 else f"↪️ 리플라이 {i}"
+            print(f"\n{label} ({len(tweet)}자):")
+            print(tweet)
+        return
+    
+    # Slack 블록 구성
     blocks = [
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": f"{emoji} X Content: {title}", "emoji": True}
+            "text": {"type": "plain_text", "text": f"{emoji} X Thread: {title}", "emoji": True}
         },
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"以下の内容をXに投稿してください:\n\n```{clean_content}```"}
-        },
-        {"type": "divider"},
         {
             "type": "context",
             "elements": [
-                {"type": "mrkdwn", "text": "📋 上のテキストをコピーして @alhockey_fans で投稿してください"}
+                {"type": "mrkdwn", "text": f"🧵 스레드 형식: 메인 1개 + 리플라이 {len(tweets)-1}개"}
             ]
-        }
+        },
+        {"type": "divider"}
     ]
+    
+    # 각 트윗 추가
+    for i, tweet in enumerate(tweets):
+        clean_tweet = clean_markdown(tweet)
+        char_count = len(clean_tweet)
+        char_status = "✅" if char_count <= X_CHAR_LIMIT else "⚠️초과"
+        
+        label = "🧵 **메인 트윗**" if i == 0 else f"↪️ **리플라이 {i}**"
+        
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"{label} ({char_count}자 {char_status})\n```{clean_tweet}```"}
+        })
+    
+    blocks.append({"type": "divider"})
+    blocks.append({
+        "type": "context",
+        "elements": [
+            {"type": "mrkdwn", "text": "📋 위 순서대로 @alhockey_fans 에서 스레드로 게시하세요"}
+        ]
+    })
     
     payload = {"blocks": blocks}
     
     try:
         response = requests.post(SLACK_WEBHOOK_URL, json=payload)
         if response.status_code == 200:
-            print(f"✅ Slack 전송 완료 ({content_type})")
+            print(f"✅ Slack 스레드 전송 완료 ({content_type})")
         else:
             print(f"❌ Slack 전송 실패: {response.status_code} - {response.text}")
     except Exception as e:
@@ -435,11 +458,10 @@ def send_to_slack(content: str, content_type: str):
 
 
 # =============================================================================
-# 4. 메인 함수
+# 5. 메인 함수
 # =============================================================================
 
 def main():
-    # 인자로 content_type 받기 (review/preview)
     if len(sys.argv) < 2:
         print("Usage: python x_content.py <review|preview>")
         print("  review  - 지난 주 경기 결과 요약 (일요일 발행)")
@@ -449,10 +471,10 @@ def main():
     content_type = sys.argv[1].lower()
     if content_type not in ['review', 'preview']:
         print(f"❌ 잘못된 content_type: {content_type}")
-        print("  'review' 또는 'preview'를 사용하세요.")
         sys.exit(1)
     
-    print(f"[{datetime.now().isoformat()}] 🚀 X Content Generator 시작 ({content_type})")
+    print(f"[{datetime.now().isoformat()}] 🚀 X Thread Generator 시작 ({content_type})")
+    print(f"📏 X 글자수 제한: {X_CHAR_LIMIT}자")
     
     # Supabase 초기화
     init_supabase()
@@ -462,7 +484,7 @@ def main():
     standings = get_standings_info()
     print(f"📊 팀 정보 로드: {len(team_info)}개 팀")
     
-    # 컨텐츠 생성
+    # 스레드 생성
     if content_type == 'review':
         matches = get_weekly_results()
         print(f"📅 지난 주 경기: {len(matches)}개")
@@ -471,7 +493,7 @@ def main():
             print("⚠️ 지난 주 경기 없음. 종료.")
             return
         
-        content = generate_review_content(matches, team_info, standings)
+        tweets = generate_review_thread(matches, team_info, standings)
         
     else:  # preview
         matches = get_upcoming_series()
@@ -481,13 +503,13 @@ def main():
             print("⚠️ 다음 주 경기 없음. 종료.")
             return
         
-        content = generate_preview_content(matches, team_info, standings)
+        tweets = generate_preview_thread(matches, team_info, standings)
     
-    if content:
-        print(f"\n📝 생성된 컨텐츠 (미리보기):\n{content[:300]}...")
-        send_to_slack(content, content_type)
+    if tweets:
+        print(f"\n🧵 생성된 스레드: {len(tweets)}개 트윗")
+        send_thread_to_slack(tweets, content_type)
     else:
-        print("❌ 컨텐츠 생성 실패")
+        print("❌ 스레드 생성 실패")
     
     print(f"\n[{datetime.now().isoformat()}] ✅ 완료")
 
