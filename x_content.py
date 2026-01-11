@@ -186,7 +186,14 @@ def generate_review_thread(matches: list, team_info: dict, standings: dict) -> l
 {team_context}
 
 ## 今週の試合結果 ({date_range})
-{[f"{m['date']} {m['home']} {m['home_score']}-{m['away_score']} {m['away']}" for m in match_details]}
+"""
+    
+    # 각 경기별 상세 정보 (링크 포함)
+    for i, m in enumerate(match_details, 1):
+        prompt += f"\n{i}. {m['date']} {m['home']} {m['home_score']}-{m['away_score']} {m['away']}"
+        prompt += f"\n   링크: {m['link']}"
+    
+    prompt += f"""
 
 ## 現在の順位
 {standings_text}
@@ -211,7 +218,7 @@ def generate_review_thread(matches: list, team_info: dict, standings: dict) -> l
 ## リプライツイートの要件（各試合ごと）
 - 試合日時と対戦カード
 - スコアと簡単な一言コメント
-- 詳細リンク使用: {match_details[0]['link'] if match_details else 'https://alhockey.fans/schedule/XXX?lang=jp'}
+- 【重要】各試合のリンクは上記の「リンク」をそのまま使用してください。絶対に変更しないでください。
 - 280文字以内
 - 絵文字使用
 
@@ -310,7 +317,14 @@ def generate_preview_thread(matches: list, team_info: dict, standings: dict) -> 
 {team_context}
 
 ## 来週の試合予定 ({date_range})
-{[f"{m['datetime']} {m['home']}({m['home_rank']}位) vs {m['away']}({m['away_rank']}位)" for m in match_details]}
+"""
+    
+    # 각 경기별 상세 정보 (링크 포함)
+    for i, m in enumerate(match_details, 1):
+        prompt += f"\n{i}. {m['datetime']} {m['home']}({m['home_rank']}位) vs {m['away']}({m['away_rank']}位)"
+        prompt += f"\n   링크: {m['link']}"
+    
+    prompt += f"""
 
 ## 現在の順位
 {standings_text}
@@ -335,7 +349,7 @@ def generate_preview_thread(matches: list, team_info: dict, standings: dict) -> 
 ## リプライツイートの要件（各試合ごと）
 - 試合日時と対戦カード（順位含む）
 - 見どころや注目ポイントを一言で
-- 詳細リンク使用: {match_details[0]['link'] if match_details else 'https://alhockey.fans/schedule/XXX?lang=jp'}
+- 【重要】各試合のリンクは上記の「リンク」をそのまま使用してください。絶対に変更しないでください。
 - 280文字以内
 - 絵文字使用
 - 選手名は使用しない（データがないため）
