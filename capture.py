@@ -578,12 +578,18 @@ def send_to_slack(image_paths: list, caption: str, caption_type: str):
     # 마크다운 제거한 깨끗한 멘트
     clean_caption = clean_markdown(caption)
     
+    # 텍스트 길이 제한 (Slack Block Kit limit: 3000 chars)
+    # 안전하게 2500자로 제한하고 말줄임표
+    if len(clean_caption) > 2500:
+        clean_caption = clean_caption[:2500] + "\n...(내용이 너무 길어 생략되었습니다)"
+    
     # 이미지를 Supabase Storage에 업로드하고 URL 수집
     image_urls = []
     for path in image_paths:
         url = upload_image_to_supabase(path)
         if url:
             image_urls.append(url)
+            print(f"🔗 Image URL: {url}")
     
     # Slack 메시지 구성
     blocks = [
@@ -623,6 +629,9 @@ def send_to_slack(image_paths: list, caption: str, caption_type: str):
             print(f"✅ Slack 전송 완료 ({caption_type})")
         else:
             print(f"❌ Slack 전송 실패: {response.status_code} - {response.text}")
+            import json
+            print(f"📦 Failed Payload: {json.dumps(payload, ensure_ascii=False)}")
+            
     except Exception as e:
         print(f"❌ Slack 전송 에러: {e}")
 
