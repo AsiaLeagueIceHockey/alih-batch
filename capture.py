@@ -80,21 +80,28 @@ def get_todays_matches() -> list:
     return response.data
 
 
-def get_tomorrows_matches() -> list:
+def get_preview_matches() -> list:
     """
-    내일 00:00 ~ 23:59 사이 경기 조회 (Preview용)
+    내일부터 3일간의 경기 조회 (Preview용)
+    예: 내일이 1일이면 -> 1, 2, 3일 경기 조회
     KST 기준으로 계산
     """
     # KST = UTC+9
     now_kst = datetime.utcnow() + timedelta(hours=9)
     tomorrow = now_kst + timedelta(days=1)
-    tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow_end = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # 3일치 (내일 + 2일)
+    end_date = tomorrow + timedelta(days=2)
+    
+    start_dt = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_dt = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    print(f"🔎 Preview 조회 기간: {start_dt.strftime('%Y-%m-%d')} ~ {end_dt.strftime('%Y-%m-%d')}")
     
     response = supabase.table('alih_schedule') \
         .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id') \
-        .gte('match_at', tomorrow_start.isoformat()) \
-        .lte('match_at', tomorrow_end.isoformat()) \
+        .gte('match_at', start_dt.isoformat()) \
+        .lte('match_at', end_dt.isoformat()) \
         .order('match_at') \
         .execute()
     
@@ -218,30 +225,41 @@ def capture_match_goals(game_no: int) -> list[str]:
 def format_match_info_for_preview(matches: list, team_info: dict, standings: dict) -> str:
     """경기 정보 포맷 (Preview용)"""
     lines = []
-    for i, match in enumerate(matches, 1):
-        home_id = match['home_alih_team_id']
-        away_id = match['away_alih_team_id']
-        
-        home_name = team_info.get(home_id, {}).get('name', 'Unknown')
-        away_name = team_info.get(away_id, {}).get('name', 'Unknown')
-        home_standing = standings.get(home_id, {})
-        away_standing = standings.get(away_id, {})
-        home_rank = home_standing.get('rank', '?')
-        away_rank = away_standing.get('rank', '?')
-        home_pts = home_standing.get('points', 0)
-        away_pts = away_standing.get('points', 0)
-        
+    
+    # 날짜별 그룹화 (KST 기준)
+    matches_by_date = {}
+    for match in matches:
         match_time = match['match_at']
         if match_time:
             try:
                 dt = datetime.fromisoformat(match_time.replace('Z', '+00:00'))
-                time_str = dt.strftime('%H:%M')
+                dt_kst = dt + timedelta(hours=9)
+                date_key = dt_kst.strftime('%m/%d(%a)')
+                if date_key not in matches_by_date:
+                    matches_by_date[date_key] = []
+                matches_by_date[date_key].append(match)
             except:
-                time_str = ""
-        else:
+                continue
+
+    for date_str, daily_matches in matches_by_date.items():
+        lines.append(f"\n📅 {date_str}")
+        for match in daily_matches:
+            home_id = match['home_alih_team_id']
+            away_id = match['away_alih_team_id']
+            
+            home_name = team_info.get(home_id, {}).get('name', 'Unknown')
+            away_name = team_info.get(away_id, {}).get('name', 'Unknown')
+            home_rank = standings.get(home_id, {}).get('rank', '?')
+            away_rank = standings.get(away_id, {}).get('rank', '?')
+            
+            match_time = match['match_at']
             time_str = ""
-        
-        lines.append(f"{i}. {home_name} ({home_rank}위, {home_pts}pts) vs {away_name} ({away_rank}위, {away_pts}pts) - {time_str}")
+            if match_time:
+                dt = datetime.fromisoformat(match_time.replace('Z', '+00:00'))
+                dt_kst = dt + timedelta(hours=9)
+                time_str = dt_kst.strftime('%H:%M')
+            
+            lines.append(f"- {time_str} | {home_name}({home_rank}위) vs {away_name}({away_rank}위)")
     
     return "\n".join(lines)
 
@@ -379,8 +397,14 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
     # 경기 정보
     if caption_type == 'preview':
         match_info = format_match_info_for_preview(matches, team_info, standings)
-        date_info = (datetime.utcnow() + timedelta(hours=9) + timedelta(days=1)).strftime('%m월 %d일')
-    else:
+        
+        # 날짜 범위 표시
+        now_kst = datetime.utcnow() + timedelta(hours=9)
+        start_date = now_kst + timedelta(days=1)
+        end_date = start_date + timedelta(days=2)
+        date_info = f"{start_date.strftime('%m월 %d일')} ~ {end_date.strftime('%m월 %d일')}"
+        
+    else:  # result
         match_info = format_match_info_for_result(matches, team_info, standings)
         date_info = (datetime.utcnow() + timedelta(hours=9)).strftime('%m월 %d일')
     
@@ -388,8 +412,10 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
     if caption_type == 'preview':
         example = """12월 2주차 아시아리그 PREVIEW 🏒
 
+📅 12/15(토)
 1️⃣ HL 안양 (2위) vs 닛코 아이스벅스 (3위) 👉 지난 9월 원정의 빚을 갚을 시간! 2위 수성과 선두 추격을 위한 필승의 홈 리벤지 매치 ⚔️
 
+📅 12/16(일)
 2️⃣ 레드이글스 홋카이도 (1위) vs 요코하마 그리츠 (4위) 👉 압도적 1위의 독주 체제 굳히기냐, 도깨비팀 그리츠의 반란이냐! 물러설 곳 없는 승부 🛡️
 
 추운 겨울, 가장 뜨거운 열기를 느낄 수 있는 아이스하키 직관 어떠신가요? 🏟️
@@ -400,7 +426,7 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 #아시아리그아이스하키 #아시아리그 #hl안양 #redeagles"""
         
         prompt = f"""당신은 아시아리그 아이스하키 인스타그램 계정 운영자입니다.
-내일 예정된 경기들의 PREVIEW 멘트를 작성해주세요.
+앞으로 3일간 예정된 경기들의 PREVIEW 멘트를 작성해주세요.
 
 [아시아리그 팀 정보 - 반드시 이 이름들만 사용하세요]
 {team_context}
@@ -408,19 +434,20 @@ def generate_caption(matches: list, team_info: dict, standings: dict, caption_ty
 [현재 리그 순위표 - 포인트 차이를 참고하여 경기 분위기를 파악하세요]
 {league_standings}
 
-[내일 경기 정보 - {date_info}]
+[경기 일정 - {date_info}]
 {match_info}
 
 [작성 예시]
 {example}
 
 [요구사항]
-1. 각 경기마다 기대포인트를 흥미롭게 작성 (순위 경쟁, 포인트 차이, 홈/원정 매치업 등)
-2. 팀 이름은 반드시 위 [팀 정보]에 있는 한국어 이름만 사용
-3. 이모지 적극 활용
-4. 마지막에 @alhockey_fans 멘션과 해시태그 포함
-5. 해시태그에는 팀 영문명(소문자, 공백제거)도 포함
-6. 주의: 선수 이름, 개인 기록, 부상 정보 등 제공되지 않은 정보는 절대 언급하지 마세요. 오직 위에 제공된 정보만 사용하세요.
+1. 날짜별로 구분하여 경기 내용을 작성해주세요.
+2. 각 경기마다 기대포인트를 흥미롭게 작성 (순위 경쟁, 포인트 차이, 홈/원정 매치업 등)
+3. 팀 이름은 반드시 위 [팀 정보]에 있는 한국어 이름만 사용
+4. 이모지 적극 활용
+5. 마지막에 @alhockey_fans 멘션과 해시태그 포함
+6. 해시태그에는 팀 영문명(소문자, 공백제거)도 포함
+7. 주의: 선수 이름, 개인 기록, 부상 정보 등 제공되지 않은 정보는 절대 언급하지 마세요. 오직 위에 제공된 정보만 사용하세요.
 
 위 예시 스타일을 참고하여 멘트를 작성해주세요."""
 
@@ -651,14 +678,14 @@ def main():
     else:
         print("  → 오늘 경기 없음")
     
-    # --- 내일 경기 처리 (Preview) ---
-    tomorrows_matches = get_tomorrows_matches()
-    print(f"\n📅 내일 경기: {len(tomorrows_matches)}개")
+    # --- 내일+2일 경기 처리 (Preview) ---
+    preview_matches = get_preview_matches()
+    print(f"\n📅 Preview 대상 경기 (3일간): {len(preview_matches)}개")
     
-    if tomorrows_matches:
+    if preview_matches:
         # 캡처
         preview_images = []
-        for match in tomorrows_matches:
+        for match in preview_matches:
             game_no = match['game_no']
             try:
                 image_path = capture_match_preview(game_no)
@@ -668,13 +695,13 @@ def main():
         
         # AI 멘트 생성
         if preview_images:
-            preview_caption = generate_caption(tomorrows_matches, team_info, standings, 'preview')
+            preview_caption = generate_caption(preview_matches, team_info, standings, 'preview')
             print(f"\n📝 Preview 멘트:\n{preview_caption[:200]}...")
             
             # Slack 전송
             send_to_slack(preview_images, preview_caption, 'preview')
     else:
-        print("  → 내일 경기 없음")
+        print("  → Preview 대상 경기 없음")
     
     print(f"\n[{datetime.now().isoformat()}] ✅ 완료")
 

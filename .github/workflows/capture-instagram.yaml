@@ -2,7 +2,7 @@ name: Capture Instagram Preview/Result
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # 매일 UTC 12:00 = KST 21:00
+    - cron: '0 11 * * *'  # 매일 UTC 11:00 = KST 20:00
   workflow_dispatch:  # 수동 실행 가능
 
 jobs:
