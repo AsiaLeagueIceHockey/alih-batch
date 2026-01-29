@@ -623,17 +623,45 @@ def send_to_slack(image_paths: list, caption: str, caption_type: str):
     
     payload = {"blocks": blocks}
     
+    # 재시도 로직 (Max 3 retries)
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+            if response.status_code == 200:
+                print(f"✅ Slack 전송 완료 ({caption_type})")
+                return
+            elif 500 <= response.status_code < 600:
+                print(f"⚠️ Slack Server Error ({response.status_code})... Retrying ({attempt+1}/{max_retries})")
+                time.sleep(2 * (attempt + 1))  # Backoff
+                continue
+            else:
+                print(f"❌ Slack 전송 실패: {response.status_code} - {response.text}")
+                import json
+                print(f"📦 Failed Payload: {json.dumps(payload, ensure_ascii=False)}")
+                break
+        except Exception as e:
+            print(f"⚠️ Slack 전송 에러: {e}. Retrying ({attempt+1}/{max_retries})")
+            time.sleep(2 * (attempt + 1))
+    
+    # 모든 시도 실패 시 텍스트만 전송 시도 (Fallback)
+    print("⚠️ 이미지 포함 전송 실패. 텍스트만 전송 시도합니다.")
+    text_payload = {
+        "blocks": [
+            blocks[0], # Header
+            blocks[1], # Text
+            blocks[2]  # Divider
+        ]
+    }
     try:
-        response = requests.post(SLACK_WEBHOOK_URL, json=payload)
+        response = requests.post(SLACK_WEBHOOK_URL, json=text_payload, timeout=10)
         if response.status_code == 200:
-            print(f"✅ Slack 전송 완료 ({caption_type})")
+            print(f"✅ Slack 텍스트 전송 완료 (이미지 제외)")
         else:
-            print(f"❌ Slack 전송 실패: {response.status_code} - {response.text}")
-            import json
-            print(f"📦 Failed Payload: {json.dumps(payload, ensure_ascii=False)}")
-            
+            print(f"❌ Slack 텍스트 전송 실패: {response.status_code}")
     except Exception as e:
-        print(f"❌ Slack 전송 에러: {e}")
+        print(f"❌ Slack 텍스트 전송 에러: {e}")
 
 
 # =============================================================================
