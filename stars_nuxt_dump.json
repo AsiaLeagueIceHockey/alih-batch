@@ -1,0 +1,1903 @@
+[
+  [
+    "Reactive",
+    1
+  ],
+  {
+    "data": 2,
+    "state": 4,
+    "_errors": 5,
+    "serverRendered": 6,
+    "path": 7,
+    "pinia": 8
+  },
+  {
+    "dynamicDataISHIDA": 3
+  },
+  null,
+  {},
+  {
+    "dynamicDataISHIDA": 3
+  },
+  true,
+  "/ISHIDA",
+  {
+    "cmsContentStore": 9,
+    "indexStore": 12,
+    "projectStore": 15,
+    "productStore": 29,
+    "pageHeadStore": 561
+  },
+  {
+    "listContentsMap": 10,
+    "contentMap": 11
+  },
+  [
+    "Map"
+  ],
+  [
+    "Map"
+  ],
+  {
+    "routeType": 13,
+    "host": 14
+  },
+  "publish",
+  "stars-kobe.com",
+  {
+    "project": 16
+  },
+  {
+    "id": 17,
+    "name": 18,
+    "type": 19,
+    "customDomain": 20,
+    "iconImage": 20,
+    "coverImage": 21,
+    "displayBadge": 22,
+    "integrations": 23,
+    "snapshot_path": 27,
+    "snapshot_id": 28,
+    "recaptchaSiteKey": -1
+  },
+  "XKOkgQy6O4",
+  "STARS KOBE",
+  "web",
+  "",
+  "https://storage.googleapis.com/production-os-assets/assets/784e61ac-e60c-4408-ad67-3bbf685e40bb",
+  false,
+  [
+    24
+  ],
+  {
+    "integration_name": 25,
+    "code": 26
+  },
+  "typesquare",
+  "unused",
+  "https://storage.googleapis.com/studio-publish/projects/XKOkgQy6O4/mqMBYNdraX/",
+  "mqMBYNdraX",
+  {
+    "product": 30,
+    "isLoaded": 6,
+    "selectedModalIds": 558,
+    "redirectPage": 3,
+    "isInitializedRSS": 22,
+    "pageViewMap": 559,
+    "symbolViewMap": 560
+  },
+  {
+    "breakPoints": 31,
+    "colors": 44,
+    "fonts": 45,
+    "head": 110,
+    "info": 116,
+    "pages": 123,
+    "resources": 468,
+    "symbols": 472,
+    "style": 483,
+    "styleVars": 485,
+    "enablePassword": 22,
+    "classes": 555,
+    "publishedUid": 557
+  },
+  [
+    32,
+    35,
+    38,
+    41
+  ],
+  {
+    "maxWidth": 33,
+    "name": 34
+  },
+  540,
+  "mobile",
+  {
+    "maxWidth": 36,
+    "name": 37
+  },
+  840,
+  "tablet",
+  {
+    "maxWidth": 39,
+    "name": 40
+  },
+  1140,
+  "small",
+  {
+    "maxWidth": 42,
+    "name": 43
+  },
+  320,
+  "mini",
+  [],
+  [
+    46,
+    63,
+    65,
+    67,
+    82,
+    88,
+    90,
+    95,
+    100,
+    103,
+    107
+  ],
+  {
+    "family": 47,
+    "subsets": 48,
+    "variants": 51,
+    "vendor": 62
+  },
+  "Lato",
+  [
+    49,
+    50
+  ],
+  "latin",
+  "latin-ext",
+  [
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61
+  ],
+  "100",
+  "100italic",
+  "300",
+  "300italic",
+  "regular",
+  "italic",
+  "700",
+  "700italic",
+  "900",
+  "900italic",
+  "google",
+  {
+    "family": 64,
+    "vendor": 25
+  },
+  "ヒラギノ角ゴ W3 JIS2004",
+  {
+    "family": 66,
+    "vendor": 25
+  },
+  "ヒラギノ角ゴ W6 JIS2004",
+  {
+    "family": 68,
+    "subsets": 69,
+    "variants": 73,
+    "vendor": 62
+  },
+  "Montserrat",
+  [
+    70,
+    71,
+    49,
+    50,
+    72
+  ],
+  "cyrillic",
+  "cyrillic-ext",
+  "vietnamese",
+  [
+    52,
+    74,
+    54,
+    56,
+    75,
+    76,
+    58,
+    77,
+    60,
+    53,
+    78,
+    55,
+    57,
+    79,
+    80,
+    59,
+    81,
+    61
+  ],
+  "200",
+  "500",
+  "600",
+  "800",
+  "200italic",
+  "500italic",
+  "600italic",
+  "800italic",
+  {
+    "family": 83,
+    "subsets": 84,
+    "variants": 86,
+    "vendor": 87
+  },
+  "PalRetron",
+  [
+    85
+  ],
+  "japanese",
+  [
+    76
+  ],
+  "fontplus",
+  {
+    "family": 89,
+    "vendor": 25
+  },
+  "リュウミン H-KL JIS2004",
+  {
+    "family": 91,
+    "subsets": 92,
+    "variants": 94,
+    "vendor": 62
+  },
+  "BIZ UDPGothic",
+  [
+    70,
+    93,
+    85,
+    49,
+    50
+  ],
+  "greek-ext",
+  [
+    56,
+    58
+  ],
+  {
+    "family": 96,
+    "variants": 97,
+    "vendor": 99
+  },
+  "Yu Gothic UI",
+  [
+    54,
+    98,
+    75,
+    58
+  ],
+  "400",
+  "system-font",
+  {
+    "family": 101,
+    "variants": 102,
+    "vendor": 99
+  },
+  "Arial Black",
+  [
+    60
+  ],
+  {
+    "family": 104,
+    "subsets": 105,
+    "variants": 106,
+    "vendor": 62
+  },
+  "Noto Sans JP",
+  [
+    70,
+    85,
+    49,
+    50,
+    72
+  ],
+  [
+    52,
+    74,
+    54,
+    56,
+    75,
+    76,
+    58,
+    77,
+    60
+  ],
+  {
+    "family": 108,
+    "variants": 109,
+    "vendor": 99
+  },
+  "Meiryo UI",
+  [
+    98,
+    58
+  ],
+  {
+    "favicon": 111,
+    "lang": 112,
+    "meta": 113,
+    "title": 18
+  },
+  "https://storage.googleapis.com/production-os-assets/assets/4cc52315-a5ab-4c06-a2c6-524f0b762b30",
+  "ja",
+  {
+    "description": 114,
+    "og:image": 115
+  },
+  "西日本初のプロアイスホッケークラブ。",
+  "https://storage.googleapis.com/production-os-assets/assets/73c72342-20e5-4b4b-965c-3f802f09fdd4",
+  {
+    "baseWidth": 117,
+    "created_at": 118,
+    "screen": 119,
+    "type": 19,
+    "updated_at": 121,
+    "version": 122
+  },
+  1280,
+  1518591100346,
+  {
+    "baseWidth": 117,
+    "height": 120,
+    "isAutoHeight": 22,
+    "width": 117,
+    "workingState": 22
+  },
+  600,
+  1518792996878,
+  "4.1.9",
+  [
+    124,
+    135,
+    142,
+    163,
+    175,
+    186,
+    198,
+    210,
+    222,
+    229,
+    236,
+    243,
+    250,
+    257,
+    264,
+    271,
+    278,
+    285,
+    292,
+    299,
+    306,
+    313,
+    320,
+    327,
+    334,
+    341,
+    348,
+    355,
+    362,
+    369,
+    376,
+    383,
+    390,
+    397,
+    404,
+    411,
+    418,
+    424,
+    431,
+    440,
+    445,
+    449,
+    458
+  ],
+  {
+    "id": 125,
+    "type": 126,
+    "uuid": 127,
+    "symbolIds": 128
+  },
+  "/",
+  "page",
+  "2e8c18b0-e8f4-4069-b9c1-81e733d407d5",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  "9ea7dacc-2116-4f86-ae75-c6dfaef80ec9",
+  "93009408-4853-40f7-be52-1a9b1fe79cff",
+  "bb62e3bf-f6c0-4bea-8b5d-ca390852a857",
+  "89f4713c-d97e-419f-be41-01e6741a1a7c",
+  "462ce1e0-34a6-48d2-a920-423b6c26a17e",
+  "1aa84917-fdef-4cef-9b5a-560b40b2b186",
+  {
+    "head": 136,
+    "id": 139,
+    "type": 126,
+    "uuid": 140,
+    "symbolIds": 141
+  },
+  {
+    "meta": 137,
+    "title": 138
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ABOUT",
+  "about",
+  "9bda0365-b179-458f-96c0-86c75bdea60f",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "defs": 143,
+    "head": 154,
+    "id": 157,
+    "state": 158,
+    "type": 126,
+    "uuid": 161,
+    "symbolIds": 162
+  },
+  [
+    144,
+    148,
+    151
+  ],
+  {
+    "key": 145,
+    "type": 146,
+    "uid": 147
+  },
+  "text",
+  "string",
+  "VLfXhwll",
+  {
+    "key": 149,
+    "type": 146,
+    "uid": 150
+  },
+  "text1",
+  "Rm4cPie3",
+  {
+    "key": 152,
+    "type": 152,
+    "uid": 153
+  },
+  "image",
+  "heb1EGUe",
+  {
+    "meta": 155,
+    "title": 156
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | NEWS INDEX",
+  "news-index",
+  {
+    "image": 159,
+    "text": 160,
+    "text1": 160
+  },
+  "https://images.unsplash.com/photo-1507214617719-4a3daf41b9ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=Mnw2MzQ2fDB8MXxzZWFyY2h8NHx8VGV4dHVyZXN8ZW58MHx8fHwxNjIwNzk5NjM4&ixlib=rb-1.2.1&q=80&w=1080",
+  "Hello World.",
+  "ca4a5cca-dac0-4b22-8916-b739b3b89920",
+  [
+    134,
+    129,
+    130,
+    131,
+    132,
+    133
+  ],
+  {
+    "defs": 164,
+    "head": 168,
+    "id": 171,
+    "state": 172,
+    "type": 126,
+    "uuid": 173,
+    "symbolIds": 174
+  },
+  [
+    165,
+    166,
+    167
+  ],
+  {
+    "key": 145,
+    "type": 146,
+    "uid": 147
+  },
+  {
+    "key": 149,
+    "type": 146,
+    "uid": 150
+  },
+  {
+    "key": 152,
+    "type": 152,
+    "uid": 153
+  },
+  {
+    "meta": 169,
+    "title": 170
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | PRIVACY POLICY",
+  "privacy",
+  {
+    "image": 159,
+    "text": 160,
+    "text1": 160
+  },
+  "b353bdd3-ccb6-4153-b611-f76062082f9c",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "defs": 176,
+    "head": 180,
+    "id": 182,
+    "state": 183,
+    "type": 126,
+    "uuid": 184,
+    "symbolIds": 185
+  },
+  [
+    177,
+    178,
+    179
+  ],
+  {
+    "key": 145,
+    "type": 146,
+    "uid": 147
+  },
+  {
+    "key": 149,
+    "type": 146,
+    "uid": 150
+  },
+  {
+    "key": 152,
+    "type": 152,
+    "uid": 153
+  },
+  {
+    "meta": 181,
+    "title": 170
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "legalstatement",
+  {
+    "image": 159,
+    "text": 160,
+    "text1": 160
+  },
+  "4c199a7d-7ec7-4498-927d-0b8bad3096d4",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "defs": 187,
+    "head": 191,
+    "id": 194,
+    "state": 195,
+    "type": 126,
+    "uuid": 196,
+    "symbolIds": 197
+  },
+  [
+    188,
+    189,
+    190
+  ],
+  {
+    "key": 145,
+    "type": 146,
+    "uid": 147
+  },
+  {
+    "key": 149,
+    "type": 146,
+    "uid": 150
+  },
+  {
+    "key": 152,
+    "type": 152,
+    "uid": 153
+  },
+  {
+    "meta": 192,
+    "title": 193
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | GUIDELINES",
+  "guidelines",
+  {
+    "image": 159,
+    "text": 160,
+    "text1": 160
+  },
+  "d8e2d1de-de5e-4726-a381-96f0c38640c1",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "defs": 199,
+    "head": 203,
+    "id": 206,
+    "state": 207,
+    "type": 126,
+    "uuid": 208,
+    "symbolIds": 209
+  },
+  [
+    200,
+    201,
+    202
+  ],
+  {
+    "key": 145,
+    "type": 146,
+    "uid": 147
+  },
+  {
+    "key": 149,
+    "type": 146,
+    "uid": 150
+  },
+  {
+    "key": 152,
+    "type": 152,
+    "uid": 153
+  },
+  {
+    "meta": 204,
+    "title": 205
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | CD Application Form",
+  "cdappform",
+  {
+    "image": 159,
+    "text": 160,
+    "text1": 160
+  },
+  "66e8634b-309d-4a66-ac89-b0f96e6af30a",
+  [
+    134,
+    129,
+    130,
+    131,
+    132,
+    133
+  ],
+  {
+    "defs": 211,
+    "head": 215,
+    "id": 218,
+    "state": 219,
+    "type": 126,
+    "uuid": 220,
+    "symbolIds": 221
+  },
+  [
+    212,
+    213,
+    214
+  ],
+  {
+    "key": 145,
+    "type": 146,
+    "uid": 147
+  },
+  {
+    "key": 149,
+    "type": 146,
+    "uid": 150
+  },
+  {
+    "key": 152,
+    "type": 152,
+    "uid": 153
+  },
+  {
+    "meta": 216,
+    "title": 217
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | CONTACT",
+  "contact",
+  {
+    "image": 159,
+    "text": 160,
+    "text1": 160
+  },
+  "5618cd61-cd75-4eca-9f7e-93a916abdb34",
+  [
+    134,
+    129,
+    130,
+    131,
+    132,
+    133
+  ],
+  {
+    "head": 223,
+    "id": 226,
+    "type": 126,
+    "uuid": 227,
+    "symbolIds": 228
+  },
+  {
+    "meta": 224,
+    "title": 225
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | TICKET",
+  "ticket",
+  "65ff093b-9704-4bf8-a379-4bb978419545",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 230,
+    "id": 233,
+    "type": 126,
+    "uuid": 234,
+    "symbolIds": 235
+  },
+  {
+    "meta": 231,
+    "title": 232
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | SCHEDULE",
+  "schedule",
+  "28e9a194-4b26-4cd5-82a5-91b6727778d5",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 237,
+    "id": 240,
+    "type": 126,
+    "uuid": 241,
+    "symbolIds": 242
+  },
+  {
+    "meta": 238,
+    "title": 239
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | TEAM",
+  "team",
+  "c4419e14-55fb-4a09-8fd9-9863ad113cdc",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 244,
+    "id": 247,
+    "type": 126,
+    "uuid": 248,
+    "symbolIds": 249
+  },
+  {
+    "meta": 245,
+    "title": 246
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | UNIFORM",
+  "uniform",
+  "cb3d2e18-c7ff-4d20-9113-e19fc5d10e85",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 251,
+    "id": 254,
+    "type": 126,
+    "uuid": 255,
+    "symbolIds": 256
+  },
+  {
+    "meta": 252,
+    "title": 253
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ISHIDA",
+  "ISHIDA",
+  "24f25655-e92e-49e5-972d-4118e668cee1",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 258,
+    "id": 261,
+    "type": 126,
+    "uuid": 262,
+    "symbolIds": 263
+  },
+  {
+    "meta": 259,
+    "title": 260
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ONODERA",
+  "ONODERA",
+  "a18b9ee7-66f7-4990-abd4-2c462aba5eea",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 265,
+    "id": 268,
+    "type": 126,
+    "uuid": 269,
+    "symbolIds": 270
+  },
+  {
+    "meta": 266,
+    "title": 267
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | JANG G",
+  "JANG-G",
+  "10ca6ec9-7671-4d1d-a583-207a30422ebe",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 272,
+    "id": 275,
+    "type": 126,
+    "uuid": 276,
+    "symbolIds": 277
+  },
+  {
+    "meta": 273,
+    "title": 274
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ODERMATT M",
+  "ODERMATTｰM",
+  "580e7fc0-8956-4d1d-988a-4bbbbc920d96",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 279,
+    "id": 282,
+    "type": 126,
+    "uuid": 283,
+    "symbolIds": 284
+  },
+  {
+    "meta": 280,
+    "title": 281
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ODERMATT T",
+  "ODERMATTｰT",
+  "12cc7d3f-9848-47d2-99bd-850fdfc04efe",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 286,
+    "id": 289,
+    "type": 126,
+    "uuid": 290,
+    "symbolIds": 291
+  },
+  {
+    "meta": 287,
+    "title": 288
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | AYRE",
+  "AYRE",
+  "ce9a5eee-2402-4f08-8f6a-0b9e507453f8",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 293,
+    "id": 296,
+    "type": 126,
+    "uuid": 297,
+    "symbolIds": 298
+  },
+  {
+    "meta": 294,
+    "title": 295
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | WANG",
+  "WANG",
+  "442e0e6c-9465-4021-899f-9f2e9c0c3774",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 300,
+    "id": 303,
+    "type": 126,
+    "uuid": 304,
+    "symbolIds": 305
+  },
+  {
+    "meta": 301,
+    "title": 302
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | HOU",
+  "HOU",
+  "5d53c921-3bba-4da7-90ce-b6363ac832a3",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 307,
+    "id": 310,
+    "type": 126,
+    "uuid": 311,
+    "symbolIds": 312
+  },
+  {
+    "meta": 308,
+    "title": 309
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | YANO RYO",
+  "YANO-RYO",
+  "ef545144-637d-41a5-ba87-8ae82e184a66",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 314,
+    "id": 317,
+    "type": 126,
+    "uuid": 318,
+    "symbolIds": 319
+  },
+  {
+    "meta": 315,
+    "title": 316
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | YANO RIN",
+  "YANO-RIN",
+  "1a93977a-73c0-40a7-b928-5cea42341c09",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 321,
+    "id": 324,
+    "type": 126,
+    "uuid": 325,
+    "symbolIds": 326
+  },
+  {
+    "meta": 322,
+    "title": 323
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | KAWAGISHI",
+  "KAWAGISHI",
+  "50c9c70a-5de9-4fe0-b39d-63cb5c74a6c6",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 328,
+    "id": 331,
+    "type": 126,
+    "uuid": 332,
+    "symbolIds": 333
+  },
+  {
+    "meta": 329,
+    "title": 330
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | NEGISHI",
+  "NEGISHI",
+  "098a21a0-59ac-4831-a568-74673973d998",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 335,
+    "id": 338,
+    "type": 126,
+    "uuid": 339,
+    "symbolIds": 340
+  },
+  {
+    "meta": 336,
+    "title": 337
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | WATANABE",
+  "WATANABE",
+  "cf9b25fb-ffee-461b-a348-036107a8b9eb",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 342,
+    "id": 345,
+    "type": 126,
+    "uuid": 346,
+    "symbolIds": 347
+  },
+  {
+    "meta": 343,
+    "title": 344
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ZAIKE",
+  "ZAIKE",
+  "0a4e5cd7-2eb3-4307-b831-b58d06e36baa",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 349,
+    "id": 352,
+    "type": 126,
+    "uuid": 353,
+    "symbolIds": 354
+  },
+  {
+    "meta": 350,
+    "title": 351
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | LEE",
+  "LEE",
+  "402415dd-11d0-4b32-955d-6c3c45cd0cde",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 356,
+    "id": 359,
+    "type": 126,
+    "uuid": 360,
+    "symbolIds": 361
+  },
+  {
+    "meta": 357,
+    "title": 358
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | YOO",
+  "YOO",
+  "62245cf5-cf22-41f6-adfb-f92e9fed3da8",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 363,
+    "id": 366,
+    "type": 126,
+    "uuid": 367,
+    "symbolIds": 368
+  },
+  {
+    "meta": 364,
+    "title": 365
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | PARK",
+  "PARK",
+  "a864f2ce-5dd6-42c2-b4ca-79ad51384a80",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 370,
+    "id": 373,
+    "type": 126,
+    "uuid": 374,
+    "symbolIds": 375
+  },
+  {
+    "meta": 371,
+    "title": 372
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | JANG-H",
+  "JANG-H",
+  "495209d7-037d-42ed-9135-d302df05557b",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 377,
+    "id": 380,
+    "type": 126,
+    "uuid": 381,
+    "symbolIds": 382
+  },
+  {
+    "meta": 378,
+    "title": 379
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | SHIN",
+  "SHIN",
+  "f794f591-0b06-43ed-af44-249c622bef28",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 384,
+    "id": 387,
+    "type": 126,
+    "uuid": 388,
+    "symbolIds": 389
+  },
+  {
+    "meta": 385,
+    "title": 386
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | CHO",
+  "CHO",
+  "f8c4e038-ac67-444e-a025-7765a01483e3",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 391,
+    "id": 394,
+    "type": 126,
+    "uuid": 395,
+    "symbolIds": 396
+  },
+  {
+    "meta": 392,
+    "title": 393
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | KIM",
+  "KIM",
+  "3965e3e1-aefb-4c46-ba4e-dde80420cbd3",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 398,
+    "id": 401,
+    "type": 126,
+    "uuid": 402,
+    "symbolIds": 403
+  },
+  {
+    "meta": 399,
+    "title": 400
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | AOYAMA",
+  "AOYAMA",
+  "287bb3e7-9309-407c-8d83-ed11395c03eb",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 405,
+    "id": 408,
+    "type": 126,
+    "uuid": 409,
+    "symbolIds": 410
+  },
+  {
+    "meta": 406,
+    "title": 407
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | PARTNER",
+  "partner",
+  "73c4ec2b-0fd5-4842-aa0f-420745c44d9b",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 412,
+    "id": 415,
+    "type": 126,
+    "uuid": 416,
+    "symbolIds": 417
+  },
+  {
+    "meta": 413,
+    "title": 414
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | CROWDFUNDING",
+  "crowdfunding",
+  "ca43fdaa-d670-4e32-80cf-551f6c2cfa7e",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 419,
+    "id": 421,
+    "type": 126,
+    "uuid": 422,
+    "symbolIds": 423
+  },
+  {
+    "meta": 420,
+    "title": 414
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "crowdfunding-kids-game-202603",
+  "4517c5c7-a16e-473d-a3fc-2654d9e8ca2d",
+  [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134
+  ],
+  {
+    "head": 425,
+    "id": 428,
+    "type": 126,
+    "uuid": 429,
+    "symbolIds": 430
+  },
+  {
+    "meta": 426,
+    "title": 427
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "STARS KOBE | ERROR",
+  "404",
+  "8ba1d68a-6a8a-40df-b31c-595f6e25ef28",
+  [
+    129,
+    134
+  ],
+  {
+    "head": 432,
+    "id": 435,
+    "position": 436,
+    "type": 126,
+    "uuid": 438,
+    "symbolIds": 439
+  },
+  {
+    "meta": 433,
+    "title": 434
+  },
+  {
+    "description": 20,
+    "og:image": 20
+  },
+  "SMARTCOMPANY | NEWS",
+  "news",
+  {
+    "x": 437,
+    "y": 437
+  },
+  0,
+  "8d0450ae-af1b-42e4-bc9e-daa152155d5a",
+  [
+    134
+  ],
+  {
+    "id": 441,
+    "isCookieModal": 22,
+    "responsive": 6,
+    "type": 442,
+    "uuid": 443,
+    "symbolIds": 444
+  },
+  "thanks",
+  "modal",
+  "0c1c4147-4bef-4b44-a7c1-3ab5e28add38",
+  [],
+  {
+    "id": 446,
+    "responsive": 6,
+    "type": 442,
+    "uuid": 447,
+    "symbolIds": 448
+  },
+  "menu",
+  "b609716b-7cbb-40e3-a835-f56fb72892f5",
+  [],
+  {
+    "cmsRequest": 450,
+    "head": 453,
+    "id": 455,
+    "type": 126,
+    "uuid": 456,
+    "symbolIds": 457
+  },
+  {
+    "contentSlug": 451,
+    "schemaKey": 452
+  },
+  "{{$route.params.slug}}",
+  "dHsdwZsS",
+  {
+    "title": 454
+  },
+  "SMARTCOMPANY | NEWS | {{title}} 記事一覧",
+  "news/:slug",
+  "9b83084b-deb5-4199-9820-4928e88f9520",
+  [
+    134
+  ],
+  {
+    "cmsRequest": 459,
+    "head": 461,
+    "id": 465,
+    "type": 126,
+    "uuid": 466,
+    "symbolIds": 467
+  },
+  {
+    "contentSlug": 451,
+    "schemaKey": 460
+  },
+  "TkURtEEb",
+  {
+    "meta": 462,
+    "title": 464
+  },
+  {
+    "description": 463
+  },
+  "{{body}} ",
+  "STARS KOBE | NEWS | {{title}} ",
+  "posts/:slug",
+  "d63ae6a3-18a2-4a21-92dd-fadf40101ed7",
+  [
+    129,
+    134
+  ],
+  {
+    "rssList": 469,
+    "apiList": 470,
+    "cmsProjectId": 471
+  },
+  [],
+  [],
+  "89f81280cb8941048d3b",
+  [
+    473,
+    474,
+    476,
+    478,
+    479,
+    480,
+    481,
+    482
+  ],
+  {
+    "uuid": 134
+  },
+  {
+    "uuid": 475
+  },
+  "2428b204-d167-403c-a8e1-5ba492f48088",
+  {
+    "uuid": 477
+  },
+  "e5297f76-80ce-49f4-b51f-bd7922da1bd6",
+  {
+    "uuid": 129
+  },
+  {
+    "uuid": 130
+  },
+  {
+    "uuid": 131
+  },
+  {
+    "uuid": 132
+  },
+  {
+    "uuid": 133
+  },
+  {
+    "fontFamily": 484
+  },
+  [],
+  {
+    "color": 486,
+    "fontFamily": 523
+  },
+  [
+    487,
+    491,
+    495,
+    499,
+    503,
+    507,
+    511,
+    515,
+    519
+  ],
+  {
+    "key": 488,
+    "name": 489,
+    "value": 490
+  },
+  "0a85c4a2",
+  "Background",
+  "none",
+  {
+    "key": 492,
+    "name": 493,
+    "value": 494
+  },
+  "19946023",
+  "Stars Navy",
+  "rgb(25, 33, 89)",
+  {
+    "key": 496,
+    "name": 497,
+    "value": 498
+  },
+  "e592dfb9",
+  "Background(BLUE)",
+  "rgb(240, 240, 248)",
+  {
+    "key": 500,
+    "name": 501,
+    "value": 502
+  },
+  "6b971fd0",
+  "Background(red)",
+  "rgb(248, 240, 240)",
+  {
+    "key": 504,
+    "name": 505,
+    "value": 506
+  },
+  "1aa19d4a",
+  "StarsRed",
+  "rgb(216, 12, 24)",
+  {
+    "key": 508,
+    "name": 509,
+    "value": 510
+  },
+  "95919b0c",
+  "Line",
+  "rgb(230, 230, 230)",
+  {
+    "key": 512,
+    "name": 513,
+    "value": 514
+  },
+  "cb8f32a0",
+  "sonotakuro",
+  "rgb(58, 58, 64)",
+  {
+    "key": 516,
+    "name": 517,
+    "value": 518
+  },
+  "34bfc6c2",
+  "text-ash",
+  "#555555ff",
+  {
+    "key": 520,
+    "name": 521,
+    "value": 522
+  },
+  "96b1ec05",
+  "link blue",
+  "#3954eeff",
+  [
+    524,
+    527,
+    531,
+    535,
+    537,
+    540,
+    543,
+    546,
+    549,
+    552
+  ],
+  {
+    "key": 525,
+    "name": 526,
+    "value": 68
+  },
+  "18a508ab",
+  "タイトル - 英字",
+  {
+    "key": 528,
+    "name": 529,
+    "value": 530
+  },
+  "f7a6a6c7",
+  "タイトル - 日本語",
+  "'ヒラギノ角ゴ W6 JIS2004'",
+  {
+    "key": 532,
+    "name": 533,
+    "value": 534
+  },
+  "abbfb9fe",
+  "本文",
+  "'ヒラギノ角ゴ W3 JIS2004'",
+  {
+    "key": 536,
+    "name": 20,
+    "value": 83
+  },
+  "aab466c0",
+  {
+    "key": 538,
+    "name": 20,
+    "value": 539
+  },
+  "2fbd2c33",
+  "'リュウミン H-KL JIS2004'",
+  {
+    "key": 541,
+    "name": 20,
+    "value": 542
+  },
+  "edb877d3",
+  "'BIZ UDPGothic'",
+  {
+    "key": 544,
+    "name": 20,
+    "value": 545
+  },
+  "8da9dee7",
+  "'Yu Gothic UI'",
+  {
+    "key": 547,
+    "name": 20,
+    "value": 548
+  },
+  "9d9ebec6",
+  "'Arial Black'",
+  {
+    "key": 550,
+    "name": 20,
+    "value": 551
+  },
+  "5697136b",
+  "'Noto Sans JP'",
+  {
+    "key": 553,
+    "name": 20,
+    "value": 554
+  },
+  "e89b8d96",
+  "'Meiryo UI'",
+  {
+    "typography": 556
+  },
+  [],
+  "20260130044634",
+  [],
+  {},
+  [
+    "Map"
+  ],
+  {
+    "googleFontMap": 562,
+    "typesquareLoaded": 22,
+    "hasCustomFont": 22,
+    "materialSymbols": 563
+  },
+  [
+    "Map"
+  ],
+  []
+]
