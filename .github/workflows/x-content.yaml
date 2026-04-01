@@ -1,0 +1,60 @@
+name: X Content Generator (Japanese)
+
+on:
+  schedule:
+    # Series Review: 매주 일요일 20:00 KST (UTC 11:00)
+    - cron: '0 11 * * 0'
+    # Series Preview: 매주 목요일 20:00 KST (UTC 11:00)
+    - cron: '0 11 * * 4'
+  workflow_dispatch:
+    inputs:
+      content_type:
+        description: 'Content type to generate'
+        required: true
+        type: choice
+        options:
+          - review
+          - preview
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install supabase groq requests
+      
+      - name: Determine content type
+        id: content_type
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.content_type }}" >> $GITHUB_OUTPUT
+          else
+            # 스케줄 실행 시: 일요일(0)=review, 목요일(4)=preview
+            DAY_OF_WEEK=$(date -u +%u)
+            if [ "$DAY_OF_WEEK" == "7" ]; then
+              echo "type=review" >> $GITHUB_OUTPUT
+            elif [ "$DAY_OF_WEEK" == "4" ]; then
+              echo "type=preview" >> $GITHUB_OUTPUT
+            else
+              echo "type=review" >> $GITHUB_OUTPUT
+            fi
+          fi
+      
+      - name: Run X content generator
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python x_content.py ${{ steps.content_type.outputs.type }}

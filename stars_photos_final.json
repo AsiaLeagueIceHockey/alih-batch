@@ -1,0 +1,112 @@
+[
+  {
+    "slug": "ISHIDA",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-2048x2048_v-frms_webp_e929333a-46c4-4457-b941-8e5ff869e907_small.webp",
+    "jersey_number": 32
+  },
+  {
+    "slug": "ONODERA",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_0e4fc5c1-c817-4f3e-b2e8-a344d4a075ab_small.webp",
+    "jersey_number": 33
+  },
+  {
+    "slug": "JANG-G",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_8003ccc8-1c6c-4639-a17b-8c6984a81c75_small.webp",
+    "jersey_number": 70
+  },
+  {
+    "slug": "ZAIKE",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_2bcc3872-25c0-441f-a3ea-f6c821f2af0d_small.webp",
+    "jersey_number": 2
+  },
+  {
+    "slug": "CHO",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-2048x2048_v-frms_webp_5480943e-5790-46ac-883d-2b5ded68b1bb_small.webp",
+    "jersey_number": 7
+  },
+  {
+    "slug": "AOYAMA",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_862769ac-87a5-4688-ad95-0cf5ee9771cf_small.webp",
+    "jersey_number": 12
+  },
+  {
+    "slug": "LEE",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_05519370-fa8e-4ef1-91c0-4f25d292ff4d_small.webp",
+    "jersey_number": 23
+  },
+  {
+    "slug": "WATANABE",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_589b5b6f-2f05-415b-88dd-0afa1d558aca_small.webp",
+    "jersey_number": 46
+  },
+  {
+    "slug": "KIM",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_268f534b-14bc-4b75-adb4-8b6bf4906a51_small.webp",
+    "jersey_number": 56
+  },
+  {
+    "slug": "YOO",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgY6O4/s-4000x4000_v-frms_webp_ba3085d7-0dc6-453e-8d6f-87700ff5d149_small.webp",
+    "jersey_number": 81
+  },
+  {
+    "slug": "ODERMATT-M",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_cc6acf14-e67e-414b-845d-382fd03c87e9_small.webp",
+    "jersey_number": 10
+  },
+  {
+    "slug": "ODERMATT-T",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_e0afba84-a430-427c-a526-d5a31ee3f736_small.webp",
+    "jersey_number": 13
+  },
+  {
+    "slug": "YANO-RIN",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_7d313dcd-e17c-477c-99a8-d57b75bc45b8_small.webp",
+    "jersey_number": 14
+  },
+  {
+    "slug": "YANO-RYO",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_41528879-57cc-4653-a003-6e80155f54b5_small.webp",
+    "jersey_number": 19
+  },
+  {
+    "slug": "AYRE",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_0544d360-b7de-4f37-906c-f079fb1189ee_small.webp",
+    "jersey_number": 22
+  },
+  {
+    "slug": "NEGISHI",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_b1ab6bc4-fa75-47b5-b38e-31528c22b75e_small.webp",
+    "jersey_number": 29
+  },
+  {
+    "slug": "HOU",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_b2549ddc-e00a-4ecd-84c9-7059a62dc898_small.webp",
+    "jersey_number": 77
+  },
+  {
+    "slug": "JANG-H",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_b2c5e7d8-6a04-4e87-bbae-347fb5d91fb1_small.webp",
+    "jersey_number": 78
+  },
+  {
+    "slug": "PARK",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_0aa4dc63-0471-4adb-8726-9462c31b6e0e_small.webp",
+    "jersey_number": 85
+  },
+  {
+    "slug": "KAWAGISHI",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_dd3bf14f-d236-4e59-98e9-af8004577608_small.webp",
+    "jersey_number": 86
+  },
+  {
+    "slug": "WANG",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_6e3672fa-3eed-4d23-9570-93b8ca3b3bc0_small.webp",
+    "jersey_number": 91
+  },
+  {
+    "slug": "SHIN",
+    "photo": "https://storage.googleapis.com/studio-design-asset-files/projects/XKOkgQy6O4/s-4000x4000_v-frms_webp_f00d3df8-ab88-43f6-8d2e-b582c2353a27_small.webp",
+    "jersey_number": 92
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "name": "alih-batch",
+  "version": "1.0.0",
+  "description": "- 배치성으로 가져올 수 있는 데이터를 가져온다.",
+  "main": "scrapeSingleGame.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.81.0",
+    "axios": "^1.13.2",
+    "cheerio": "^1.1.2",
+    "iconv-lite": "^0.7.0"
+  }
+}
