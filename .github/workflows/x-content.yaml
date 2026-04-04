@@ -1,11 +1,11 @@
 name: X Content Generator (Japanese)
 
 on:
-  schedule:
-    # Series Review: 매주 일요일 20:00 KST (UTC 11:00)
-    - cron: '0 11 * * 0'
-    # Series Preview: 매주 목요일 20:00 KST (UTC 11:00)
-    - cron: '0 11 * * 4'
+#  schedule:
+#    # Series Review: 매주 일요일 20:00 KST (UTC 11:00)
+#    - cron: '0 11 * * 0'
+#    # Series Preview: 매주 목요일 20:00 KST (UTC 11:00)
+#    - cron: '0 11 * * 4'
   workflow_dispatch:
     inputs:
       content_type:

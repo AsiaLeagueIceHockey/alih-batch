@@ -1,10 +1,10 @@
 name: Update Live URLs
 
 on:
-  schedule:
-    # 15분 간격으로 실행 (경기 시작 전 라이브 URL 갱신)
-    # UTC 기준, KST = UTC + 9
-    - cron: '*/15 * * * *'
+#  schedule:
+#    # 15분 간격으로 실행 (경기 시작 전 라이브 URL 갱신)
+#    # UTC 기준, KST = UTC + 9
+#    - cron: '*/15 * * * *'
   
   workflow_dispatch:  # 수동 실행 가능
 

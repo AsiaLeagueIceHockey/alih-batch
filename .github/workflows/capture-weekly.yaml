@@ -1,8 +1,8 @@
 name: Capture Weekly Stats
 
 on:
-  schedule:
-    - cron: '0 13 * * 0'  # 매주 일요일 UTC 13:00 = KST 22:00
+#  schedule:
+#    - cron: '0 13 * * 0'  # 매주 일요일 UTC 13:00 = KST 22:00
   workflow_dispatch:  # 수동 실행 가능
 
 jobs:

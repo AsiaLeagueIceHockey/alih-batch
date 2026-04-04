@@ -2,8 +2,8 @@ name: Scrape Asia League Ice Hockey News
 
 on:
   workflow_dispatch: 
-  schedule:
-    - cron: '0 * * * *' 
+#  schedule:
+#    - cron: '0 * * * *' 
 
 jobs:
   scrape:
