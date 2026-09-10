@@ -14,6 +14,7 @@ from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
 from groq import Groq
 import requests
+from season_config import require_target_season
 
 # --- 환경변수 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -21,6 +22,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 RESULT_DATE_KST = os.environ.get("RESULT_DATE_KST")
+TARGET_SEASON = require_target_season()
 
 # --- Supabase 클라이언트 ---
 supabase: Client = None
@@ -55,6 +57,7 @@ def get_standings_info() -> dict:
     """
     response = supabase.table('alih_standings') \
         .select('team_id, rank, points') \
+        .eq('season', TARGET_SEASON) \
         .order('rank') \
         .execute()
     
@@ -109,6 +112,7 @@ def get_result_matches() -> list:
     
     response = supabase.table('alih_schedule') \
         .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id, home_alih_team_score, away_alih_team_score') \
+        .eq('season', TARGET_SEASON) \
         .gte('match_at', target_start.isoformat()) \
         .lte('match_at', target_end.isoformat()) \
         .order('match_at') \
@@ -140,6 +144,7 @@ def get_preview_matches() -> list:
     
     response = supabase.table('alih_schedule') \
         .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id') \
+        .eq('season', TARGET_SEASON) \
         .gte('match_at', start_dt.isoformat()) \
         .lte('match_at', end_dt.isoformat()) \
         .order('match_at') \
@@ -148,11 +153,11 @@ def get_preview_matches() -> list:
     return response.data
 
 
-def get_goal_count(game_no: int) -> int:
+def get_goal_count(schedule_id: int) -> int:
     """경기의 총 골 수 조회"""
     response = supabase.table('alih_game_details') \
         .select('goals') \
-        .eq('game_no', game_no) \
+        .eq('schedule_id', schedule_id) \
         .maybe_single() \
         .execute()
     
@@ -165,11 +170,12 @@ def get_goal_count(game_no: int) -> int:
 # 2. 캡처 함수
 # =============================================================================
 
-def capture_match_result(game_no: int) -> str:
+def capture_match_result(match: dict) -> str:
     """
     Result 페이지 캡처
     Returns: 저장된 파일 경로
     """
+    game_no = match['game_no']
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
@@ -179,7 +185,7 @@ def capture_match_result(game_no: int) -> str:
         )
         page = context.new_page()
         
-        target_url = f"https://alhockey.fans/instagram/score?game_no={game_no}"
+        target_url = f"https://alhockey.fans/instagram/score?game_no={game_no}&season={TARGET_SEASON}"
         print(f"📡 [Result] 캡처 중: {target_url}")
         page.goto(target_url)
         page.wait_for_timeout(5000)  # 로고 등 로딩 대기
@@ -192,11 +198,12 @@ def capture_match_result(game_no: int) -> str:
         return file_name
 
 
-def capture_match_preview(game_no: int) -> str:
+def capture_match_preview(match: dict) -> str:
     """
     Preview 페이지 캡처
     Returns: 저장된 파일 경로
     """
+    game_no = match['game_no']
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
@@ -206,7 +213,7 @@ def capture_match_preview(game_no: int) -> str:
         )
         page = context.new_page()
         
-        target_url = f"https://alhockey.fans/instagram/preview?game_no={game_no}"
+        target_url = f"https://alhockey.fans/instagram/preview?game_no={game_no}&season={TARGET_SEASON}"
         print(f"📡 [Preview] 캡처 중: {target_url}")
         page.goto(target_url)
         page.wait_for_timeout(5000)  # 로고 등 로딩 대기
@@ -219,12 +226,13 @@ def capture_match_preview(game_no: int) -> str:
         return file_name
 
 
-def capture_match_goals(game_no: int) -> list[str]:
+def capture_match_goals(match: dict) -> list[str]:
     """
     Goals 페이지 캡처 (페이지네이션 대응)
     Returns: 저장된 파일 경로 리스트
     """
-    goal_count = get_goal_count(game_no)
+    game_no = match['game_no']
+    goal_count = get_goal_count(match['id'])
     if goal_count == 0:
         print(f"⚠️ game_no={game_no}: 골 기록 없음, 캡처 생략")
         return []
@@ -243,7 +251,7 @@ def capture_match_goals(game_no: int) -> list[str]:
         page = context.new_page()
         
         for page_num in range(1, total_pages + 1):
-            target_url = f"https://alhockey.fans/instagram/goals?game_no={game_no}&page={page_num}"
+            target_url = f"https://alhockey.fans/instagram/goals?game_no={game_no}&page={page_num}&season={TARGET_SEASON}"
             print(f"📡 [Goals] 캡처 중: {target_url}")
             page.goto(target_url)
             page.wait_for_timeout(5000)
@@ -304,14 +312,14 @@ def format_match_info_for_preview(matches: list, team_info: dict, standings: dic
     return "\n".join(lines)
 
 
-def get_goals_info(game_no: int, team_info: dict) -> str:
+def get_goals_info(match: dict, team_info: dict) -> str:
     """
     경기별 골/어시스트 정보 추출
     Returns: 포맷된 골 정보 문자열
     """
     response = supabase.table('alih_game_details') \
         .select('goals, home_roster, away_roster') \
-        .eq('game_no', game_no) \
+        .eq('schedule_id', match['id']) \
         .maybe_single() \
         .execute()
     
@@ -324,17 +332,8 @@ def get_goals_info(game_no: int, team_info: dict) -> str:
     away_roster = {p['no']: p['name'] for p in data.get('away_roster', [])}
     
     # 스케줄에서 홈/어웨이 팀 ID 조회 필요
-    schedule_res = supabase.table('alih_schedule') \
-        .select('home_alih_team_id, away_alih_team_id') \
-        .eq('game_no', game_no) \
-        .maybe_single() \
-        .execute()
-    
-    if not schedule_res.data:
-        return "스케줄 정보 없음"
-    
-    home_team_id = schedule_res.data['home_alih_team_id']
-    away_team_id = schedule_res.data['away_alih_team_id']
+    home_team_id = match['home_alih_team_id']
+    away_team_id = match['away_alih_team_id']
     
     # 골을 시간순 정렬
     sorted_goals = sorted(goals, key=lambda g: (
@@ -389,7 +388,7 @@ def format_match_info_for_result(matches: list, team_info: dict, standings: dict
         away_score = match.get('away_alih_team_score', 0) or 0
         
         # 골 정보 추가
-        goals_info = get_goals_info(game_no, team_info)
+        goals_info = get_goals_info(match, team_info)
         
         lines.append(f"{i}. {home_name} ({home_score}) : ({away_score}) {away_name}")
         lines.append(f"   [득점 기록]")
@@ -732,14 +731,14 @@ def main():
             
             # Result 캡처
             try:
-                image_path = capture_match_result(game_no)
+                image_path = capture_match_result(match)
                 result_images.append(image_path)
             except Exception as e:
                 print(f"❌ Result 캡처 실패 (game_no={game_no}): {e}")
             
             # Goals 캡처 (추가)
             try:
-                goal_paths = capture_match_goals(game_no)
+                goal_paths = capture_match_goals(match)
                 goals_images.extend(goal_paths)
             except Exception as e:
                 print(f"❌ Goals 캡처 실패 (game_no={game_no}): {e}")
@@ -765,7 +764,7 @@ def main():
         for match in preview_matches:
             game_no = match['game_no']
             try:
-                image_path = capture_match_preview(game_no)
+                image_path = capture_match_preview(match)
                 preview_images.append(image_path)
             except Exception as e:
                 print(f"❌ Preview 캡처 실패 (game_no={game_no}): {e}")

@@ -2,6 +2,14 @@ const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const iconv = require('iconv-lite'); // Shift_JIS 디코딩 필수
+const TARGET_SEASON = process.env.TARGET_SEASON;
+
+if (!TARGET_SEASON || !/^\d{4}-\d{2}$/.test(TARGET_SEASON)) {
+  throw new Error('TARGET_SEASON must be an explicit YYYY-YY value');
+}
+if (process.env.ALLOW_GAME_SHEET_WRITE !== 'true') {
+  throw new Error('Game-sheet writer is disabled until the schedule_id contract migration and source parser are verified');
+}
 
 // Supabase 클라이언트
 const supabase = createClient(
@@ -138,8 +146,11 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
     source_popup_id,
     source_game_no,
   } = scheduleData;
-  const popupId = source_popup_id || 47;
-  const sourceGameNo = source_game_no || gameNoToScrape;
+  if (!source_popup_id || !source_game_no) {
+    throw new Error(`No legacy game-sheet mapping for ${TARGET_SEASON} game ${gameNoToScrape}`);
+  }
+  const popupId = source_popup_id;
+  const sourceGameNo = source_game_no;
   const gameSheetUrl = `https://www.alhockey.com/sheet/${popupId}/game/ogs${sourceGameNo}.html`;
   
   console.log(`[START] Scraping internal Game No: ${gameNoToScrape} -> popup/${popupId} game ${sourceGameNo}`);
@@ -273,6 +284,7 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
 
   // 4. DB에 삽입할 최종 객체
   const detailData = {
+    schedule_id: scheduleData.id,
     game_no: parseInt(gameNoToScrape, 10),
     spectators: game_info.spectators,
     game_info: game_info,
@@ -287,7 +299,7 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
   // 5. Supabase 'alih_game_details'에 Upsert (Insert or Update)
   const { data, error: upsertError } = await supabase
     .from('alih_game_details')
-    .upsert(detailData, { onConflict: 'game_no' }); // game_no가 충돌하면 덮어쓰기
+    .upsert(detailData, { onConflict: 'schedule_id' });
 
   if (upsertError) {
     throw new Error(`DB Upsert Error (alih_game_details): ${upsertError.message}`);
@@ -321,6 +333,7 @@ async function main() {
     let scheduleQuery = supabase
       .from('alih_schedule')
       .select('id, game_no, home_alih_team_id, away_alih_team_id, source_popup_id, source_game_no, season_phase, game_status, match_at')
+      .eq('season', TARGET_SEASON)
       .order('game_no', { ascending: true });
 
     if (options.gameNos && options.gameNos.length > 0) {
@@ -347,20 +360,20 @@ async function main() {
     if (!options.gameNos || options.gameNos.length === 0) {
       const { data: existingDetails, error: detailsError } = await supabase
         .from('alih_game_details')
-        .select('game_no')
-        .in('game_no', candidateGames.map(game => game.game_no));
+        .select('schedule_id')
+        .in('schedule_id', candidateGames.map(game => game.id));
 
       if (detailsError) {
         throw new Error(`Failed to fetch existing game details: ${detailsError.message}`);
       }
 
-      const detailedGameNos = new Set((existingDetails || []).map(detail => detail.game_no));
+      const detailedScheduleIds = new Set((existingDetails || []).map(detail => detail.schedule_id));
 
       gamesToScrape = candidateGames.filter(game => {
         const matchAt = new Date(game.match_at);
         const isRecentOngoing = matchAt > sixHoursAgo && game.game_status !== 'Game Finished';
-        const isFinishedWithoutDetails = game.game_status === 'Game Finished' && !detailedGameNos.has(game.game_no);
-        const isPlayoffWithoutDetails = game.season_phase === 'playoff' && !detailedGameNos.has(game.game_no);
+        const isFinishedWithoutDetails = game.game_status === 'Game Finished' && !detailedScheduleIds.has(game.id);
+        const isPlayoffWithoutDetails = game.season_phase === 'playoff' && !detailedScheduleIds.has(game.id);
 
         return isRecentOngoing || isFinishedWithoutDetails || isPlayoffWithoutDetails;
       });

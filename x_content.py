@@ -18,12 +18,14 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 from groq import Groq
 import requests
+from season_config import require_target_season
 
 # --- 환경변수 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+TARGET_SEASON = require_target_season()
 
 # X 글자수 제한
 X_CHAR_LIMIT = 280
@@ -54,6 +56,7 @@ def get_standings_info() -> dict:
     """alih_standings에서 순위 정보 조회"""
     response = supabase.table('alih_standings') \
         .select('team_id, rank, points, games_played') \
+        .eq('season', TARGET_SEASON) \
         .order('rank') \
         .execute()
     return {s['team_id']: s for s in response.data}
@@ -67,6 +70,7 @@ def get_weekly_results() -> list:
     
     response = supabase.table('alih_schedule') \
         .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id, home_alih_team_score, away_alih_team_score') \
+        .eq('season', TARGET_SEASON) \
         .gte('match_at', week_start.isoformat()) \
         .lte('match_at', today_end.isoformat()) \
         .order('match_at') \
@@ -89,6 +93,7 @@ def get_upcoming_series() -> list:
     
     response = supabase.table('alih_schedule') \
         .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id') \
+        .eq('season', TARGET_SEASON) \
         .gte('match_at', series_start.isoformat()) \
         .lte('match_at', series_end.isoformat()) \
         .order('match_at') \
@@ -162,7 +167,7 @@ def generate_review_thread(matches: list, team_info: dict, standings: dict) -> l
             'home_score': home_score,
             'away_score': away_score,
             'game_no': game_no,
-            'link': f"https://alhockey.fans/schedule/{game_no}?lang=jp"
+            'link': f"https://alhockey.fans/schedule/{game_no}?lang=jp&season={TARGET_SEASON}"
         })
     
     standings_text = format_standings_jp(team_info, standings)
@@ -293,7 +298,7 @@ def generate_preview_thread(matches: list, team_info: dict, standings: dict) -> 
             'home_rank': home_rank,
             'away_rank': away_rank,
             'game_no': game_no,
-            'link': f"https://alhockey.fans/schedule/{game_no}?lang=jp"
+            'link': f"https://alhockey.fans/schedule/{game_no}?lang=jp&season={TARGET_SEASON}"
         })
     
     standings_text = format_standings_jp(team_info, standings)

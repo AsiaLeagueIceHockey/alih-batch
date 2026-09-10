@@ -2,10 +2,14 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
+from season_config import require_target_season, season_marker, write_enabled
 
 # 1. Supabase 설정
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+TARGET_SEASON = require_target_season()
+SOURCE_POPUP_ID = os.environ.get("SOURCE_POPUP_ID", "49")
+WRITE_ENABLED = write_enabled()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_KEY must be set.")
@@ -42,10 +46,11 @@ def parse_int(text):
         return 0
 
 def scrape_and_update_players():
-    url = "https://www.alhockey.com/popup/47/individual.html"
+    url = f"https://www.alhockey.com/popup/{SOURCE_POPUP_ID}/individual.html"
     
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=20)
+        response.raise_for_status()
         response.encoding = 'shift_jis' # 인코딩 설정 필수
         html = response.text
     except Exception as e:
@@ -53,6 +58,8 @@ def scrape_and_update_players():
         return
 
     soup = BeautifulSoup(html, 'html.parser')
+    if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
+        raise RuntimeError(f"Source does not identify {TARGET_SEASON}: {soup.title.get_text(' ', strip=True)}")
     
     # DB 팀 정보 가져오기
     team_id_map = get_team_id_map()
@@ -72,13 +79,11 @@ def scrape_and_update_players():
         # DB 매핑 확인
         db_team_name = HTML_TO_DB_TEAM_MAP.get(html_team_name)
         if not db_team_name:
-            print(f"Skipping unknown team in HTML: {html_team_name}")
-            continue
+            raise RuntimeError(f"Unknown team in source: {html_team_name}")
             
         team_id = team_id_map.get(db_team_name)
         if not team_id:
-            print(f"Skipping team not found in DB: {db_team_name}")
-            continue
+            raise RuntimeError(f"Team missing from DB: {db_team_name}")
 
         # 현재 span의 부모(td) -> 부모(tr) -> 부모(table) 찾기
         # 구조: table > tr > td > span.style3
@@ -104,6 +109,7 @@ def scrape_and_update_players():
                 # 0: No, 1: Name, 2: POS, 3: GP, 4: PTS, 5: G, 6: A, 7: S, 8: SG, 9: +/-, 10: PIM ...
                 
                 player_data = {
+                    "season": TARGET_SEASON,
                     "team_id": team_id,
                     "jersey_number": parse_int(cols[0].text),
                     "name": cols[1].text.strip(),
@@ -115,29 +121,32 @@ def scrape_and_update_players():
                     "shots": parse_int(cols[7].text),
                     "plus_minus": cols[9].text.strip(), # "4/2" 형태 유지
                     "pim": parse_int(cols[10].text),
-                    "updated_at": "now()"
                 }
                 
                 players_to_upsert.append(player_data)
                 
             except Exception as e:
-                print(f"Error parsing player row: {e}")
-                continue
+                raise RuntimeError(f"Error parsing player row: {e}") from e
 
     # Supabase 저장
+    if len({player['team_id'] for player in players_to_upsert}) != 6:
+        raise RuntimeError("Player source does not contain all six teams")
     if players_to_upsert:
+        if not WRITE_ENABLED:
+            print(f"[DRY RUN] Validated {len(players_to_upsert)} players for {TARGET_SEASON}")
+            return
         print(f"Upserting {len(players_to_upsert)} players...")
         try:
             # team_id와 name을 기준으로 업데이트 (unique constraints 필요)
             result = supabase.table('alih_players').upsert(
                 players_to_upsert, 
-                on_conflict='team_id, name'
+                on_conflict='season,team_id,name'
             ).execute()
             print("Success!")
         except Exception as e:
-            print(f"Supabase Error: {e}")
+            raise RuntimeError(f"Supabase Error: {e}") from e
     else:
-        print("No players found.")
+        raise RuntimeError("No players found")
 
 # 3. 팀 약어 매핑 (HTML의 약어 -> DB의 english_name)
 CODE_TO_DB_TEAM_MAP = {
@@ -156,7 +165,7 @@ def get_player_lookup_map(team_id_map):
     """
     try:
         # 필요한 필드만 조회
-        response = supabase.table('alih_players').select('team_id, jersey_number, name').execute()
+        response = supabase.table('alih_players').select('team_id, jersey_number, name').eq('season', TARGET_SEASON).execute()
         player_map = {}
         if response.data:
             for p in response.data:
@@ -170,10 +179,11 @@ def get_player_lookup_map(team_id_map):
 def scrape_and_update_goalies():
     """골리 스탯 별도 스크래핑"""
     print("\nStarting Goalie Stats Scraping...")
-    url = "https://www.alhockey.com/popup/47/gksp.html"
+    url = f"https://www.alhockey.com/popup/{SOURCE_POPUP_ID}/gksp.html"
     
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=20)
+        response.raise_for_status()
         response.encoding = 'shift_jis'
         html = response.text
     except Exception as e:
@@ -181,6 +191,8 @@ def scrape_and_update_goalies():
         return
 
     soup = BeautifulSoup(html, 'html.parser')
+    if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
+        raise RuntimeError(f"Source does not identify {TARGET_SEASON}: {soup.title.get_text(' ', strip=True)}")
     
     team_id_map = get_team_id_map()
     if not team_id_map:
@@ -235,6 +247,7 @@ def scrape_and_update_goalies():
                 db_name = name_raw
 
             goalie_data = {
+                "season": TARGET_SEASON,
                 "team_id": team_id,
                 "name": db_name, # 중요: DB에 있는 이름으로 업데이트해야 upsert가 됨
                 
@@ -249,28 +262,29 @@ def scrape_and_update_goalies():
                 "goals_against_average": float(cols[10].text.strip()) if cols[10].text.strip() else 0.0,
                 "gkc": float(cols[11].text.strip()) if cols[11].text.strip() else 0.0,
                 
-                "updated_at": "now()"
             }
             
             goalies_to_upsert.append(goalie_data)
 
         except Exception as e:
-            print(f"Error parsing goalie row: {e}")
-            continue
+            raise RuntimeError(f"Error parsing goalie row: {e}") from e
 
     if goalies_to_upsert:
+        if not WRITE_ENABLED:
+            print(f"[DRY RUN] Validated {len(goalies_to_upsert)} goalies for {TARGET_SEASON}")
+            return
         print(f"Upserting {len(goalies_to_upsert)} goalies stats...")
         try:
             # name과 team_id가 일치하는 행에 해당 컬럼들만 업데이트
             result = supabase.table('alih_players').upsert(
                 goalies_to_upsert, 
-                on_conflict='team_id, name'
+                on_conflict='season,team_id,name'
             ).execute()
             print("GK Stats Success!")
         except Exception as e:
-            print(f"Supabase Output: {e}")
+            raise RuntimeError(f"Supabase Output: {e}") from e
     else:
-        print("No goalies found.")
+        raise RuntimeError("No goalies found")
 
 if __name__ == "__main__":
     scrape_and_update_players()
