@@ -2,11 +2,15 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
+from season_config import require_target_season, season_marker, write_enabled
 
 # 1. Supabase 클라이언트 초기화
 # GitHub Actions Secrets에서 환경 변수를 가져옵니다.
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+TARGET_SEASON = require_target_season()
+SOURCE_POPUP_ID = os.environ.get("SOURCE_POPUP_ID", "49")
+WRITE_ENABLED = write_enabled()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables.")
@@ -43,10 +47,11 @@ def scrape_and_update_standings():
     """
     순위표 페이지를 스크래핑하고 Supabase에 데이터를 업서트(Upsert)합니다.
     """
-    ALH_STANDINGS_URL = "https://www.alhockey.com/popup/47/standings.html"
+    ALH_STANDINGS_URL = f"https://www.alhockey.com/popup/{SOURCE_POPUP_ID}/standings.html"
     
     try:
-        response = requests.get(ALH_STANDINGS_URL)
+        response = requests.get(ALH_STANDINGS_URL, timeout=20)
+        response.raise_for_status()
         # 중요: 페이지 인코딩을 'shift_jis'로 설정
         response.encoding = 'shift_jis'
         html_content = response.text
@@ -55,6 +60,8 @@ def scrape_and_update_standings():
         return
 
     soup = BeautifulSoup(html_content, 'html.parser')
+    if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
+        raise RuntimeError(f"Source does not identify {TARGET_SEASON}: {soup.title.get_text(' ', strip=True)}")
 
     # 'RK'라는 텍스트를 가진 <th> 태그를 찾아 해당 테이블을 특정합니다.
     rk_header = soup.find('th', string='RK')
@@ -105,6 +112,7 @@ def scrape_and_update_standings():
 
             # 5. Supabase에 저장할 데이터 객체 생성
             data_row = {
+                'season': TARGET_SEASON,
                 'team_id': team_id,
                 'rank': int(cols[0].text.strip()),
                 'games_played': int(cols[2].text.strip()),
@@ -117,21 +125,26 @@ def scrape_and_update_standings():
                 'goals_for': goals_for,
                 'goals_against': goals_against,
                 'points': int(cols[10].text.strip()),
-                'updated_at': 'now()' # DB에서 현재 시간으로 자동 설정
             }
             standings_data_to_upsert.append(data_row)
             
         except Exception as e:
-            print(f"Error parsing row: {e} | Row data: {row.text.strip()}")
+            raise RuntimeError(f"Error parsing standings row: {e} | {row.text.strip()}") from e
 
     # 6. 데이터 일괄 업서트(Upsert)
+    if len(standings_data_to_upsert) != 6 or len({row['team_id'] for row in standings_data_to_upsert}) != 6:
+        raise RuntimeError(f"Expected six uniquely mapped teams, received {len(standings_data_to_upsert)}")
+
     if standings_data_to_upsert:
+        if not WRITE_ENABLED:
+            print(f"[DRY RUN] Validated {len(standings_data_to_upsert)} standings rows for {TARGET_SEASON}")
+            return
         print(f"Upserting {len(standings_data_to_upsert)} rows to 'alih_standings'...")
         try:
             # 'on_conflict'는 1번 단계에서 설정한 UNIQUE 제약조건(team_id)을 기준으로 합니다.
             response = supabase.table('alih_standings').upsert(
                 standings_data_to_upsert,
-                on_conflict='team_id'
+                on_conflict='team_id,season'
             ).execute()
             
             print("Upsert complete.")
@@ -141,9 +154,9 @@ def scrape_and_update_standings():
                 print(f"Successfully upserted {len(response.data)} records.")
 
         except Exception as e:
-            print(f"Error during Supabase upsert: {e}")
+            raise RuntimeError(f"Error during Supabase upsert: {e}") from e
     else:
-        print("No data parsed to upsert.")
+        raise RuntimeError("No standings data parsed")
 
 if __name__ == "__main__":
     scrape_and_update_standings()

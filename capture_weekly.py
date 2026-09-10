@@ -16,12 +16,14 @@ from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
 from groq import Groq
 import requests
+from season_config import require_target_season
 
 # --- 환경변수 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+TARGET_SEASON = require_target_season()
 
 # --- Supabase 클라이언트 ---
 supabase: Client = None
@@ -56,6 +58,7 @@ def get_standings_info() -> dict:
     """
     response = supabase.table('alih_standings') \
         .select('*') \
+        .eq('season', TARGET_SEASON) \
         .order('rank') \
         .execute()
     
@@ -73,6 +76,7 @@ def get_weekly_results() -> list:
     
     response = supabase.table('alih_schedule') \
         .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id, home_alih_team_score, away_alih_team_score') \
+        .eq('season', TARGET_SEASON) \
         .gte('match_at', week_start.isoformat()) \
         .lte('match_at', today_end.isoformat()) \
         .order('match_at') \
@@ -114,12 +118,12 @@ def capture_page(url: str, filename: str) -> str:
 def capture_weekly_stats() -> list[str]:
     """주간 통계 이미지 2장 캡처 (골/어시스트)"""
     images = []
-    images.append(capture_page("https://alhockey.fans/instagram/weekly-stats", "weekly_stats.png"))
-    images.append(capture_page("https://alhockey.fans/instagram/weekly-stats?type=assist", "weekly_stats_assist.png"))
+    images.append(capture_page(f"https://alhockey.fans/instagram/weekly-stats?season={TARGET_SEASON}", "weekly_stats.png"))
+    images.append(capture_page(f"https://alhockey.fans/instagram/weekly-stats?type=assist&season={TARGET_SEASON}", "weekly_stats_assist.png"))
     return images
 
 def capture_standings() -> str:
-    return capture_page("https://alhockey.fans/instagram/standings", "standings.png")
+    return capture_page(f"https://alhockey.fans/instagram/standings?season={TARGET_SEASON}", "standings.png")
 
 
 # =============================================================================

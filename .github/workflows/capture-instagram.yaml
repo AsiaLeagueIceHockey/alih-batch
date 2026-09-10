@@ -38,6 +38,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RESULT_DATE_KST: ${{ inputs.result_date_kst }}
+          TARGET_SEASON: '2026-27'
         run: python capture.py
       
       - name: Upload images as artifacts

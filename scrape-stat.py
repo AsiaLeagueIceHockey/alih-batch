@@ -2,10 +2,14 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
+from season_config import require_target_season, season_marker, write_enabled
 
 # 1. Supabase 설정
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+TARGET_SEASON = require_target_season()
+SOURCE_POPUP_ID = os.environ.get("SOURCE_POPUP_ID", "49")
+WRITE_ENABLED = write_enabled()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_KEY must be set.")
@@ -103,10 +107,11 @@ def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
             print(f"Error parsing row in {header_text}: {e}")
 
 def scrape_and_upsert_player_stats():
-    URL = "https://www.alhockey.com/popup/47/point_rank.html"
+    URL = f"https://www.alhockey.com/popup/{SOURCE_POPUP_ID}/point_rank.html"
     
     try:
-        response = requests.get(URL)
+        response = requests.get(URL, timeout=20)
+        response.raise_for_status()
         response.encoding = 'shift_jis' 
         html = response.text
     except Exception as e:
@@ -114,6 +119,8 @@ def scrape_and_upsert_player_stats():
         return
 
     soup = BeautifulSoup(html, 'html.parser')
+    if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
+        raise RuntimeError(f"Source does not identify {TARGET_SEASON}: {soup.title.get_text(' ', strip=True)}")
     
     team_code_map = get_team_code_map()
     if not team_code_map:
@@ -163,22 +170,25 @@ def scrape_and_upsert_player_stats():
             data['points'] = current_sum
 
     upsert_data = [
-        {**data, "updated_at": "now()"} 
+        {**data, "season": TARGET_SEASON}
         for data in players_dict.values()
     ]
 
     if upsert_data:
+        if not WRITE_ENABLED:
+            print(f"[DRY RUN] Validated {len(upsert_data)} player-stat rows for {TARGET_SEASON}")
+            return
         print(f"Upserting {len(upsert_data)} player records...")
         try:
             result = supabase.table('alih_player_stats').upsert(
                 upsert_data, 
-                on_conflict='team_id, player_name'
+                on_conflict='season,team_id,player_name'
             ).execute()
             print("Upsert Complete.")
         except Exception as e:
-            print(f"Supabase Error: {e}")
+            raise RuntimeError(f"Supabase Error: {e}") from e
     else:
-        print("No data found to upsert.")
+        raise RuntimeError("No player-stat rows parsed")
 
 if __name__ == "__main__":
     scrape_and_upsert_player_stats()

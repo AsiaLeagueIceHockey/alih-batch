@@ -27,10 +27,14 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # 쓰기 권한 필요
+          TARGET_SEASON: '2026-27'
+          SOURCE_POPUP_ID: '49'
         run: python scrape-stat.py
 
       - name: Run Players Scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TARGET_SEASON: '2026-27'
+          SOURCE_POPUP_ID: '49'
         run: python scrape-players.py

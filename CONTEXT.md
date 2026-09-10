@@ -1,5 +1,7 @@
 # ALIH-BATCH 프로젝트 컨텍스트
 
+> 주의: 아래 내용 일부는 2025-26 기준의 과거 구조를 설명한다. 2026-27의 실제 production 상태, 시즌별 identity, 비활성 workflow, 신규 `score_url`, migration 및 런칭 순서는 반드시 `../alih/docs/2026-27-operations-audit.md`를 우선한다.
+
 > 이 문서는 `alih-batch` 프로젝트의 구조와 기능을 설명하며, 향후 개발 작업 시 참조할 수 있도록 작성되었습니다.
 
 ## 📋 프로젝트 개요

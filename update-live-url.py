@@ -18,11 +18,13 @@ import subprocess
 import json
 from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
+from season_config import require_target_season
 from dateutil import parser as date_parser  # 날짜 파싱용
 
 # --- 1. Supabase 클라이언트 초기화 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+TARGET_SEASON = require_target_season()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
@@ -106,6 +108,7 @@ def get_upcoming_games(supported_team_ids: list) -> list:
     try:
         response = supabase.table('alih_schedule') \
             .select('id, game_no, match_at, home_alih_team_id, away_alih_team_id, live_url') \
+            .eq('season', TARGET_SEASON) \
             .gte('match_at', now.isoformat()) \
             .lte('match_at', seven_days_later.isoformat()) \
             .in_('home_alih_team_id', supported_team_ids) \

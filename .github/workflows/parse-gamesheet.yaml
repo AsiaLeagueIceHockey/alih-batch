@@ -1,4 +1,4 @@
-name: Live Game Sheet Scraper (20-min poll)
+name: Legacy Game Sheet Scraper (Blocked pending 2026-27 source)
 
 on:
 #  schedule:
@@ -19,17 +19,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: npm install axios cheerio @supabase/supabase-js iconv-lite
-
-      - name: Sync official schedules
-        run: node ./sync-schedule.js
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-
-      - name: Run Scraper for Ongoing Games
-        run: node ./scrapeSingleGame.js 
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      - name: Block unsafe legacy writer
+        run: |
+          echo "2026-27 game-sheet source mapping is not verified."
+          echo "This workflow intentionally performs no Supabase writes."
+          exit 1
