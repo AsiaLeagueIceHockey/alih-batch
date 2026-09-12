@@ -22,10 +22,12 @@ jobs:
       - name: Install dependencies
         run: npm install axios cheerio @supabase/supabase-js iconv-lite
 
-      - name: Run schedule sync
-        run: node ./sync-current-schedule.js
+      - name: Run popup 49 reconciliation dry-run
+        run: node ./sync-popup49-schedule.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TARGET_SEASON: '2026-27'
+          SOURCE_POPUP_ID: '49'
+          EXPECTED_GAME_COUNT: '120'
           DRY_RUN: 'true'

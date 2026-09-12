@@ -1,10 +1,36 @@
-name: Legacy Game Sheet Scraper (Blocked pending 2026-27 source)
+name: Popup Game Sheet Scraper (Manual Canary)
 
 on:
 #  schedule:
 #    - cron: '*/20 * * * *'
   
   workflow_dispatch:
+    inputs:
+      target_season:
+        description: Explicit target season
+        required: true
+        default: '2026-27'
+        type: string
+      internal_game_nos:
+        description: Comma-separated platform game numbers
+        required: true
+        default: '1'
+        type: string
+      dry_run:
+        description: Parse without writing database rows
+        required: true
+        default: true
+        type: boolean
+      allow_write:
+        description: Requires an approved identity-contract canary
+        required: true
+        default: false
+        type: boolean
+      identity_contract_verified:
+        description: Set true only after migration 008 postflight has passed
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   scrape:
@@ -19,8 +45,15 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Block unsafe legacy writer
-        run: |
-          echo "2026-27 game-sheet source mapping is not verified."
-          echo "This workflow intentionally performs no Supabase writes."
-          exit 1
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Parse requested official game sheets
+        run: node ./scrapeSingleGame.js --game-nos=${{ inputs.internal_game_nos }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TARGET_SEASON: ${{ inputs.target_season }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_GAME_SHEET_WRITE: ${{ inputs.allow_write }}
+          GAME_IDENTITY_CONTRACT_VERIFIED: ${{ inputs.identity_contract_verified }}

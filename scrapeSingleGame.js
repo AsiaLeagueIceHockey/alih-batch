@@ -2,20 +2,38 @@ const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const iconv = require('iconv-lite'); // Shift_JIS 디코딩 필수
+const { validateGameSheetHtml } = require('./lib/game-sheet-validation');
 const TARGET_SEASON = process.env.TARGET_SEASON;
+const DRY_RUN = process.env.DRY_RUN !== 'false';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || (DRY_RUN ? process.env.SUPABASE_KEY : undefined);
 
 if (!TARGET_SEASON || !/^\d{4}-\d{2}$/.test(TARGET_SEASON)) {
   throw new Error('TARGET_SEASON must be an explicit YYYY-YY value');
 }
-if (process.env.ALLOW_GAME_SHEET_WRITE !== 'true') {
-  throw new Error('Game-sheet writer is disabled until the schedule_id contract migration and source parser are verified');
+if (!DRY_RUN && process.env.ALLOW_GAME_SHEET_WRITE !== 'true') {
+  throw new Error('Refusing game-sheet write without ALLOW_GAME_SHEET_WRITE=true');
+}
+if (!DRY_RUN && process.env.GAME_IDENTITY_CONTRACT_VERIFIED !== 'true') {
+  throw new Error('Refusing game-sheet write until the schedule_id contract migration is verified');
+}
+if (!process.env.SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_KEY are required (SUPABASE_KEY is accepted for read-only dry-runs only)');
 }
 
 // Supabase 클라이언트
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  SUPABASE_KEY
 );
+
+const TEAM_NAMES_BY_ID = {
+  1: 'HL ANYANG',
+  2: 'EAGLES',
+  3: 'FREEBLADES',
+  4: 'GRITS',
+  5: 'ICEBUCKS',
+  6: 'STARS',
+};
 
 // --- 헬퍼 함수 ---
 function cleanText(element) {
@@ -138,6 +156,44 @@ function parsePenalties($, tableElement, team_id) {
   return penalties;
 }
 
+function parseGoalkeepers($, recordsTable, savesTable, homeRoster, awayRoster) {
+  const recordRows = recordsTable.find('tr').slice(2);
+  const saveRows = savesTable.find('tr');
+  const totalSaves = saveRows.filter((_, row) => $(row).find('b').length > 0).last().find('td');
+  const home = [];
+  const away = [];
+
+  recordRows.each((index, row) => {
+    const cells = $(row).find('td');
+    if (cells.length < 6) return;
+    const homeNo = parseInt(cleanText(cells.eq(0)), 10);
+    const awayNo = parseInt(cleanText(cells.eq(3)), 10);
+    if (homeNo) {
+      home.push({
+        no: homeNo,
+        name: homeRoster.find((player) => player.no === homeNo)?.name || null,
+        mip: cleanText(cells.eq(1)),
+        ga: parseInt(cleanText(cells.eq(2)), 10) || 0,
+        saves: parseInt(cleanText(totalSaves.eq(index)), 10) || 0,
+      });
+    }
+    if (awayNo) {
+      away.push({
+        no: awayNo,
+        name: awayRoster.find((player) => player.no === awayNo)?.name || null,
+        mip: cleanText(cells.eq(4)),
+        ga: parseInt(cleanText(cells.eq(5)), 10) || 0,
+        saves: parseInt(cleanText(totalSaves.eq(index + 3)), 10) || 0,
+      });
+    }
+  });
+
+  if (!home.length || !away.length) {
+    throw new Error('Game sheet is missing a recorded goalkeeper for one team');
+  }
+  return { home, away };
+}
+
 // --- 메인 스크래핑 함수 ---
 async function scrapeGame(gameNoToScrape, scheduleData) {
   const {
@@ -156,9 +212,28 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
   console.log(`[START] Scraping internal Game No: ${gameNoToScrape} -> popup/${popupId} game ${sourceGameNo}`);
 
   // 1. HTML 로드 및 Shift_JIS 디코딩
-  const response = await axios.get(gameSheetUrl, { responseType: 'arraybuffer' });
+  let response;
+  try {
+    response = await axios.get(gameSheetUrl, { responseType: 'arraybuffer', timeout: 20_000 });
+  } catch (error) {
+    if (error.response?.status === 404) {
+      console.log(`[NOT PUBLISHED] popup/${popupId} game ${sourceGameNo}`);
+      return { notPublished: true };
+    }
+    throw error;
+  }
   const html = iconv.decode(response.data, 'Shift_JIS');
   const $ = cheerio.load(html);
+  const validation = validateGameSheetHtml(html, {
+    targetSeason: TARGET_SEASON,
+    sourceGameNo,
+    homeTeam: TEAM_NAMES_BY_ID[home_alih_team_id],
+    awayTeam: TEAM_NAMES_BY_ID[away_alih_team_id],
+  });
+  if (!validation.isComplete) {
+    console.log(`[NOT COMPLETE] popup/${popupId} game ${sourceGameNo}`);
+    return { notPublished: true };
+  }
 
   // 2. 모든 테이블 선택 (안정적인 내용 기반 셀렉터로 수정)
   const headerTable = $('td:contains("Event")').closest('table.sheet2');
@@ -259,28 +334,8 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
     ...parsePenalties($, awayPenaltiesTable, away_alih_team_id)
   ];
 
-  // 3D. Goalkeepers (순서를 3C에서 3D로 변경)
-  const gkRows = gkRecordsTable.find('tr').slice(2);
-  const savesRows = savesTable.find('tr');
-  const homeGK_No = parseInt(cleanText(gkRows.eq(0).find('td').eq(0))) || null;
-  const awayGK_No = parseInt(cleanText(gkRows.eq(0).find('td').eq(3))) || null;
-  
-  const goalkeepers = {
-    home: [ { 
-      no: homeGK_No, 
-      name: home_roster.find(p => p.no === homeGK_No)?.name || null, // [!] OK: 이제 home_roster가 존재함
-      mip: cleanText(gkRows.eq(0).find('td').eq(1)), 
-      ga: parseInt(cleanText(gkRows.eq(0).find('td').eq(2))) || 0, 
-      saves: parseInt(cleanText(savesRows.eq(6).find('td').eq(0))) || 0 
-    } ],
-    away: [ { 
-      no: awayGK_No,
-      name: away_roster.find(p => p.no === awayGK_No)?.name || null, // [!] OK: 이제 away_roster가 존재함
-      mip: cleanText(gkRows.eq(0).find('td').eq(4)), 
-      ga: parseInt(cleanText(gkRows.eq(0).find('td').eq(5))) || 0, 
-      saves: parseInt(cleanText(savesRows.eq(6).find('td').eq(3))) || 0 
-    } ]
-  };
+  // 3D. Goalkeepers. Preserve every recorded goalkeeper, including a mid-game change.
+  const goalkeepers = parseGoalkeepers($, gkRecordsTable, savesTable, home_roster, away_roster);
 
   // 4. DB에 삽입할 최종 객체
   const detailData = {
@@ -297,12 +352,32 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
   };
 
   // 5. Supabase 'alih_game_details'에 Upsert (Insert or Update)
-  const { data, error: upsertError } = await supabase
-    .from('alih_game_details')
-    .upsert(detailData, { onConflict: 'schedule_id' });
+  if (!DRY_RUN) {
+    const { error: upsertError } = await supabase
+      .from('alih_game_details')
+      .upsert(detailData, { onConflict: 'schedule_id' });
 
-  if (upsertError) {
-    throw new Error(`DB Upsert Error (alih_game_details): ${upsertError.message}`);
+    if (upsertError) {
+      throw new Error(`DB Upsert Error (alih_game_details): ${upsertError.message}`);
+    }
+  } else {
+    console.log(JSON.stringify({
+      mode: 'dry-run',
+      scheduleId: scheduleData.id,
+      internalGameNo: Number(gameNoToScrape),
+      sourcePopupId: popupId,
+      sourceGameNo,
+      official: validation,
+      parsed: {
+        spectators: detailData.spectators,
+        totalScore: detailData.game_summary.total.score,
+        homeRoster: detailData.home_roster.length,
+        awayRoster: detailData.away_roster.length,
+        goals: detailData.goals.length,
+        penalties: detailData.penalties.length,
+        goalkeepers: detailData.goalkeepers,
+      },
+    }));
   }
 
   console.log(`[SUCCESS] Scraped and saved Game No: ${gameNoToScrape} (details)`);
@@ -391,11 +466,12 @@ async function main() {
     for (const game of gamesToScrape) {
       try {
         // [수정] scrapeGame이 스코어를 반환함
-        const { home_score, away_score, isFinished } = await scrapeGame(game.game_no, game);
+        const { home_score, away_score, isFinished, notPublished } = await scrapeGame(game.game_no, game);
+        if (notPublished) continue;
 
         // 4. [신규] alih_schedule 테이블에 스코어 업데이트
         //    (스코어가 유효하게 파싱된 경우에만)
-        if (home_score !== null && away_score !== null) {
+        if (!DRY_RUN && home_score !== null && away_score !== null) {
           const { error: updateError } = await supabase
             .from('alih_schedule')
             .update({ 
@@ -410,7 +486,7 @@ async function main() {
           } else {
             console.log(`[SUCCESS] Updated score for Game No: ${game.game_no} ( ${home_score} : ${away_score} )`);
           }
-        } else {
+        } else if (home_score === null || away_score === null) {
           console.log(`[INFO] No final score found for Game No: ${game.game_no}. Skipping score update.`);
         }
 
