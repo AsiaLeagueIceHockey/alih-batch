@@ -4,7 +4,7 @@
   "description": "- 배치성으로 가져올 수 있는 데이터를 가져온다.",
   "main": "scrapeSingleGame.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.cjs"
   },
   "keywords": [],
   "author": "",
