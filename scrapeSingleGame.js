@@ -375,8 +375,7 @@ async function scrapeGame(gameNoToScrape, scheduleData) {
         awayRoster: detailData.away_roster.length,
         goals: detailData.goals.length,
         penalties: detailData.penalties.length,
-        homeGoalkeepers: detailData.goalkeepers.home.length,
-        awayGoalkeepers: detailData.goalkeepers.away.length,
+        goalkeepers: detailData.goalkeepers,
       },
     }));
   }
