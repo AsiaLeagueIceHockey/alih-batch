@@ -1,0 +1,41 @@
+name: Import Official Team Rosters (Manual Canary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_season:
+        description: Explicit target season
+        required: true
+        default: '2026-27'
+        type: string
+      dry_run:
+        description: Validate official pages without uploading photos or writing players
+        required: true
+        default: true
+        type: boolean
+      allow_write:
+        description: Write season-scoped players and official photos after dry-run review
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 supabase
+      - name: Validate or import official team rosters
+        run: python import-team-rosters.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TARGET_SEASON: ${{ inputs.target_season }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_WRITE: ${{ inputs.allow_write }}
+          ALLOW_IMAGE_UPLOAD: ${{ inputs.allow_write }}
+          PLAYER_IMAGE_BUCKET: player-images
