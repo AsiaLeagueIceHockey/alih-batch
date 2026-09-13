@@ -217,12 +217,16 @@ def scrape_and_upsert_player_stats():
         if not WRITE_ENABLED:
             print(f"[DRY RUN] Validated {len(upsert_data)} player-stat rows for {TARGET_SEASON}; corrected {corrected_numbers} official jersey-number discrepancies")
             return
-        print(f"Upserting {len(upsert_data)} player records...")
+        print(f"Upserting {len(upsert_data)} player records in bounded batches...")
         try:
-            result = supabase.table('alih_player_stats').upsert(
-                upsert_data, 
-                on_conflict='season,team_id,player_name'
-            ).execute()
+            batch_size = 20
+            for offset in range(0, len(upsert_data), batch_size):
+                batch = upsert_data[offset:offset + batch_size]
+                supabase.table('alih_player_stats').upsert(
+                    batch,
+                    on_conflict='season,team_id,player_name'
+                ).execute()
+                print(f"Upserted ranking rows {offset + 1}-{offset + len(batch)}")
             print("Upsert Complete.")
         except Exception as e:
             raise RuntimeError(f"Supabase Error: {e}") from e
