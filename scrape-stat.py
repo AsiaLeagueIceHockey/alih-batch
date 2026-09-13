@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
@@ -10,6 +11,14 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 TARGET_SEASON = require_target_season()
 SOURCE_POPUP_ID = os.environ.get("SOURCE_POPUP_ID", "49")
 WRITE_ENABLED = write_enabled()
+
+# popup/49 point_rank currently contains two official spelling/order variants
+# that differ from the official 2026-27 team roster cards. Keep this narrow
+# and fail closed for every other unmapped name.
+RANKING_NAME_ALIASES = {
+    (4, 'OSAWAYUTO'): 'OHSAWAYUTO',
+    (4, 'ROCKWELLTYLER'): 'TYLERROCKWELL',
+}
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_KEY must be set.")
@@ -28,6 +37,20 @@ def get_team_code_map():
     except Exception as e:
         print(f"Error fetching team map: {e}")
         return {}
+
+def normalize_player_name(value):
+    return re.sub(r'[^A-Z0-9]+', '', value.upper())
+
+def get_roster_lookup():
+    """Official point_rank rows must resolve to the imported season roster."""
+    try:
+        response = supabase.table('alih_players').select('team_id, jersey_number, name, name_en').eq('season', TARGET_SEASON).execute()
+        lookup = {}
+        for player in response.data or []:
+            lookup[(player['team_id'], normalize_player_name(player['name_en'] or player['name']))] = player
+        return lookup
+    except Exception as e:
+        raise RuntimeError(f"Error fetching {TARGET_SEASON} roster keys: {e}") from e
 
 def parse_rank_table(soup, header_text, data_type, players_dict, team_code_map):
     """
@@ -174,9 +197,25 @@ def scrape_and_upsert_player_stats():
         for data in players_dict.values()
     ]
 
+    roster_lookup = get_roster_lookup()
+    corrected_numbers = 0
+    missing_roster_names = []
+    for row in upsert_data:
+        normalized_name = normalize_player_name(row['player_name'])
+        normalized_name = RANKING_NAME_ALIASES.get((row['team_id'], normalized_name), normalized_name)
+        roster_player = roster_lookup.get((row['team_id'], normalized_name))
+        if not roster_player:
+            missing_roster_names.append((row['team_id'], row['player_name'], row['jersey_number']))
+            continue
+        if row['jersey_number'] != roster_player['jersey_number']:
+            corrected_numbers += 1
+            row['jersey_number'] = roster_player['jersey_number']
+    if missing_roster_names:
+        raise RuntimeError(f"Official rankings reference players missing from the {TARGET_SEASON} roster: {missing_roster_names}")
+
     if upsert_data:
         if not WRITE_ENABLED:
-            print(f"[DRY RUN] Validated {len(upsert_data)} player-stat rows for {TARGET_SEASON}")
+            print(f"[DRY RUN] Validated {len(upsert_data)} player-stat rows for {TARGET_SEASON}; corrected {corrected_numbers} official jersey-number discrepancies")
             return
         print(f"Upserting {len(upsert_data)} player records...")
         try:

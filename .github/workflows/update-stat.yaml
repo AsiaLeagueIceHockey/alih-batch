@@ -4,6 +4,22 @@ on:
 #  schedule:
 #    - cron: "0 * * * *"  # 매시간 실행 (UTC)
   workflow_dispatch:
+    inputs:
+      target_season:
+        description: Explicit target season
+        required: true
+        default: '2026-27'
+        type: string
+      dry_run:
+        description: Validate official personal rankings without writing rows
+        required: true
+        default: true
+        type: boolean
+      allow_write:
+        description: Update official player ranking rows
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   scrape-players:
@@ -27,14 +43,18 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # 쓰기 권한 필요
-          TARGET_SEASON: '2026-27'
+          TARGET_SEASON: ${{ inputs.target_season }}
           SOURCE_POPUP_ID: '49'
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_WRITE: ${{ inputs.allow_write }}
         run: python scrape-stat.py
 
       - name: Run Players Scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: '2026-27'
+          TARGET_SEASON: ${{ inputs.target_season }}
           SOURCE_POPUP_ID: '49'
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_WRITE: ${{ inputs.allow_write }}
         run: python scrape-players.py

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { parsePopupScoresHtml } = require('../lib/popup-scores');
 const { canonicalVenue, reconcileSchedules } = require('../sync-popup49-schedule');
+const { reconcileFinishedResults } = require('../sync-popup49-results');
 
 const fixture = `
 <html><head><title>Asia League Ice Hockey 2026-2027 / Regular | Scores Game Sheet</title></head><body>
@@ -166,4 +167,20 @@ test('permits only the documented popup 49 time correction', () => {
 
   assert.equal(updates[0].payload.match_at, '2027-01-23T14:00:00+09:00');
   assert.equal(updates[0].payload.source_game_no, 82);
+});
+
+test('updates only an official finished game with no conflicting stored score', () => {
+  const updates = reconcileFinishedResults([
+      { officialGameNo: 1, gameStatus: 'Game Finished', homeScore: 3, awayScore: 2 },
+      { officialGameNo: 2, gameStatus: 'Scheduled', homeScore: null, awayScore: null },
+    ], [
+      { id: 1, game_no: 1, source_popup_id: 49, source_game_no: 1, home_alih_team_score: null, away_alih_team_score: null, game_status: 'Scheduled' },
+      { id: 2, game_no: 2, source_popup_id: 49, source_game_no: 2, home_alih_team_score: null, away_alih_team_score: null, game_status: 'Scheduled' },
+    ], { sourcePopupId: 49, expectedGameCount: 2 });
+  assert.deepEqual(updates, [{
+      id: 1,
+      gameNo: 1,
+      sourceGameNo: 1,
+      payload: { home_alih_team_score: 3, away_alih_team_score: 2, game_status: 'Game Finished' },
+  }]);
 });

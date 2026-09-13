@@ -5,6 +5,22 @@ on:
 #    - cron: '*/30 * * * *'
   
   workflow_dispatch:
+    inputs:
+      target_season:
+        description: Explicit target season
+        required: true
+        default: '2026-27'
+        type: string
+      dry_run:
+        description: Validate official standings without writing rows
+        required: true
+        default: true
+        type: boolean
+      allow_write:
+        description: Update official active-team standings rows
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   scrape:
@@ -33,6 +49,8 @@ jobs:
           # GitHub Secrets에 저장된 값을 환경 변수로 주입
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: '2026-27'
+          TARGET_SEASON: ${{ inputs.target_season }}
           SOURCE_POPUP_ID: '49'
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_WRITE: ${{ inputs.allow_write }}
         run: python scrape-standings.py
