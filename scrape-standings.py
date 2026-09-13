@@ -132,12 +132,15 @@ def scrape_and_update_standings():
             raise RuntimeError(f"Error parsing standings row: {e} | {row.text.strip()}") from e
 
     # 6. 데이터 일괄 업서트(Upsert)
-    if len(standings_data_to_upsert) != 6 or len({row['team_id'] for row in standings_data_to_upsert}) != 6:
-        raise RuntimeError(f"Expected six uniquely mapped teams, received {len(standings_data_to_upsert)}")
+    # The league only lists teams that have played at least one game early in
+    # the season. Preserve the pre-seeded zero-game rows for the others instead
+    # of treating that authoritative partial table as a parser failure.
+    if not 2 <= len(standings_data_to_upsert) <= 6 or len({row['team_id'] for row in standings_data_to_upsert}) != len(standings_data_to_upsert):
+        raise RuntimeError(f"Expected two to six uniquely mapped active teams, received {len(standings_data_to_upsert)}")
 
     if standings_data_to_upsert:
         if not WRITE_ENABLED:
-            print(f"[DRY RUN] Validated {len(standings_data_to_upsert)} standings rows for {TARGET_SEASON}")
+            print(f"[DRY RUN] Validated {len(standings_data_to_upsert)} official active-team standings rows for {TARGET_SEASON}")
             return
         print(f"Upserting {len(standings_data_to_upsert)} rows to 'alih_standings'...")
         try:

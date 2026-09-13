@@ -1,0 +1,40 @@
+name: Sync Official Results (Manual Canary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_season:
+        description: Explicit target season
+        required: true
+        default: '2026-27'
+        type: string
+      dry_run:
+        description: Compare results without updating schedule rows
+        required: true
+        default: true
+        type: boolean
+      allow_write:
+        description: Apply only official finished scores and statuses
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Reconcile official popup 49 results
+        run: node ./sync-popup49-results.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TARGET_SEASON: ${{ inputs.target_season }}
+          SOURCE_POPUP_ID: '49'
+          EXPECTED_GAME_COUNT: '120'
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_WRITE: ${{ inputs.allow_write }}
