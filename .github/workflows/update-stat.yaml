@@ -20,6 +20,11 @@ on:
         required: true
         default: false
         type: boolean
+      run_individual_records:
+        description: Run individual.html import only after all six official teams are present
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   scrape-players:
@@ -50,6 +55,7 @@ jobs:
         run: python scrape-stat.py
 
       - name: Run Players Scraper
+        if: ${{ inputs.run_individual_records }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
