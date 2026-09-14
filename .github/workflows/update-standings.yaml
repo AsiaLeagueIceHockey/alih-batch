@@ -1,8 +1,8 @@
 name: Update ALIH Standings
 
 on:
-#  schedule:
-#    - cron: '*/30 * * * *'
+  schedule:
+    - cron: '15 9,11,13 * * *'  # KST 18:15, 20:15, 22:15 (dry-run)
   
   workflow_dispatch:
     inputs:
@@ -49,7 +49,7 @@ jobs:
           # GitHub Secrets에 저장된 값을 환경 변수로 주입
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: ${{ inputs.target_season }}
+          TARGET_SEASON: ${{ inputs.target_season || '2026-27' }}
           SOURCE_POPUP_ID: '49'
           DRY_RUN: ${{ inputs.dry_run }}
           ALLOW_WRITE: ${{ inputs.allow_write }}

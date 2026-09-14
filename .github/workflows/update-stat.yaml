@@ -1,8 +1,8 @@
 name: Update Player Stats
 
 on:
-#  schedule:
-#    - cron: "0 * * * *"  # 매시간 실행 (UTC)
+  schedule:
+    - cron: '30 9,11,13 * * *'  # KST 18:30, 20:30, 22:30 (dry-run)
   workflow_dispatch:
     inputs:
       target_season:
@@ -48,7 +48,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # 쓰기 권한 필요
-          TARGET_SEASON: ${{ inputs.target_season }}
+          TARGET_SEASON: ${{ inputs.target_season || '2026-27' }}
           SOURCE_POPUP_ID: '49'
           DRY_RUN: ${{ inputs.dry_run }}
           ALLOW_WRITE: ${{ inputs.allow_write }}
@@ -59,7 +59,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: ${{ inputs.target_season }}
+          TARGET_SEASON: ${{ inputs.target_season || '2026-27' }}
           SOURCE_POPUP_ID: '49'
           DRY_RUN: ${{ inputs.dry_run }}
           ALLOW_WRITE: ${{ inputs.allow_write }}
