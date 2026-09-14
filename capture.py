@@ -161,7 +161,7 @@ def get_goal_count(schedule_id: int) -> int:
         .maybe_single() \
         .execute()
     
-    if response.data and response.data.get('goals'):
+    if response and response.data and response.data.get('goals'):
         return len(response.data['goals'])
     return 0
 
@@ -323,7 +323,7 @@ def get_goals_info(match: dict, team_info: dict) -> str:
         .maybe_single() \
         .execute()
     
-    if not response.data or not response.data.get('goals'):
+    if not response or not response.data or not response.data.get('goals'):
         return "골 기록 없음"
     
     data = response.data
