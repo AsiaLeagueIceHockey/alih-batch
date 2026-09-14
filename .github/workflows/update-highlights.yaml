@@ -1,10 +1,21 @@
 name: Update YouTube Highlights
 
 on:
-#  schedule:
-#    - cron: '30 * * * *'  # 매시 30분에 실행 (다른 작업과 겹치지 않도록)
+  schedule:
+    - cron: '45 9,11,13 * * *'  # KST 18:45, 20:45, 22:45
   
-  workflow_dispatch:  # 수동 실행 가능
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate matches without writing highlight URLs
+        required: true
+        default: true
+        type: boolean
+      allow_write:
+        description: Update matched schedule highlight URLs
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   scrape-highlights:
@@ -33,4 +44,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TARGET_SEASON: '2026-27'
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALLOW_WRITE: ${{ inputs.allow_write }}
         run: python scrape-highlights.py

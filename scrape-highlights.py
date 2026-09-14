@@ -4,12 +4,13 @@ import json
 import re
 from datetime import datetime
 from supabase import create_client, Client
-from season_config import require_target_season
+from season_config import require_target_season, write_enabled
 
 # --- 1. Supabase 클라이언트 초기화 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 TARGET_SEASON = require_target_season()
+WRITE_ENABLED = write_enabled()
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
@@ -62,11 +63,6 @@ HIGHLIGHT_SOURCES = [
         "name": "ALHockey_JP",
         "channel_url": "https://www.youtube.com/@ALhockey_JP/videos",
         "limit": 30,
-    },
-    {
-        "name": "ONTHESPORTS",
-        "channel_url": "https://www.youtube.com/@ONTHESPORTS/videos",
-        "limit": 20,
     },
 ]
 
@@ -217,8 +213,8 @@ def match_and_update_schedule(video: dict, parsed_info: dict, team_id_map: dict,
     
     # 해당 날짜에 두 팀이 맞붙은 경기 검색
     # match_at은 timestamp이므로 날짜 범위로 검색
-    date_start = f"{match_date}T00:00:00"
-    date_end = f"{match_date}T23:59:59"
+    date_start = f"{match_date}T00:00:00+09:00"
+    date_end = f"{match_date}T23:59:59+09:00"
     
     try:
         # OR 조건: (home=A, away=B) OR (home=B, away=A)
@@ -257,12 +253,15 @@ def match_and_update_schedule(video: dict, parsed_info: dict, team_id_map: dict,
         # 업데이트
         video_url = f"https://www.youtube.com/watch?v={video['id']}"
         
-        # 홈/어웨이 팀 ID 확인
         home_team_id = matched_game['home_alih_team_id']
         away_team_id = matched_game['away_alih_team_id']
-        
-        # 한국어 타이틀 생성
+
         highlight_title = generate_highlight_title(parsed_info, home_team_id, away_team_id, korean_name_map)
+
+        if not WRITE_ENABLED:
+            print(f"  [DRY RUN] Would update Game {matched_game['game_no']}: {highlight_title}")
+            return True
+
         
         update_response = supabase.table('alih_schedule') \
             .update({
