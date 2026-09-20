@@ -1,8 +1,8 @@
-name: Sync Official Results (Manual Canary)
+name: Sync Official Results
 
 on:
   schedule:
-    - cron: '0 9,11,13 * * *'  # KST 18:00, 20:00, 22:00 (dry-run)
+    - cron: '0 8,9,11,13,14 * * *'  # KST 17:00, 18:00, 20:00, 22:00, 23:00
   workflow_dispatch:
     inputs:
       target_season:
@@ -24,6 +24,9 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    concurrency:
+      group: sync-official-results
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,8 +38,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: ${{ inputs.target_season || '2026-27' }}
+          TARGET_SEASON: ${{ github.event_name == 'schedule' && '2026-27' || inputs.target_season }}
           SOURCE_POPUP_ID: '49'
           EXPECTED_GAME_COUNT: '120'
-          DRY_RUN: ${{ inputs.dry_run }}
-          ALLOW_WRITE: ${{ inputs.allow_write }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          ALLOW_WRITE: ${{ github.event_name == 'schedule' && 'true' || inputs.allow_write }}
