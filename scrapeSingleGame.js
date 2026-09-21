@@ -461,8 +461,9 @@ async function main() {
 
     console.log(`Found ${gamesToScrape.length} games to scrape: [${gamesToScrape.map(g => g.game_no).join(', ')}]`);
 
-    // 3. 찾은 모든 경기에 대해 *순차적으로* 스크래핑 실행
-    //    (병렬 대신 순차 처리하여 Supabase 부하 감소 및 안정성 확보)
+    // Process sequentially to keep source and database load bounded. A parser
+    // error must fail the run so GitHub Actions cannot report a false success.
+    const failedGames = [];
     for (const game of gamesToScrape) {
       try {
         // [수정] scrapeGame이 스코어를 반환함
@@ -491,9 +492,13 @@ async function main() {
         }
 
       } catch (scrapeError) {
-        // scrapeGame 내부에서 오류가 나도 다음 게임으로 넘어가도록 처리
         console.error(`[FAIL] Scraping failed for Game No: ${game.game_no} - ${scrapeError.message}`);
+        failedGames.push(`${game.game_no}: ${scrapeError.message}`);
       }
+    }
+
+    if (failedGames.length > 0) {
+      throw new Error(`Game-sheet parsing failed for ${failedGames.join('; ')}`);
     }
     
     console.log('Live polling job finished successfully.');
