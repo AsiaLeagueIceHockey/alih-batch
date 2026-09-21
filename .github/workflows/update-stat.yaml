@@ -2,7 +2,7 @@ name: Update Player Stats
 
 on:
   schedule:
-    - cron: '30 9,11,13 * * *'  # KST 18:30, 20:30, 22:30 (dry-run)
+    - cron: '30 9,11,13 * * *'  # KST 18:30, 20:30, 22:30
   workflow_dispatch:
     inputs:
       target_season:
@@ -48,10 +48,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # 쓰기 권한 필요
-          TARGET_SEASON: ${{ inputs.target_season || '2026-27' }}
+          TARGET_SEASON: ${{ github.event_name == 'schedule' && '2026-27' || inputs.target_season }}
           SOURCE_POPUP_ID: '49'
-          DRY_RUN: ${{ inputs.dry_run }}
-          ALLOW_WRITE: ${{ inputs.allow_write }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          ALLOW_WRITE: ${{ github.event_name == 'schedule' && 'true' || inputs.allow_write }}
         run: python scrape-stat.py
 
       - name: Run Players Scraper
