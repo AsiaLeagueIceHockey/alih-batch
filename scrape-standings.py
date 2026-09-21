@@ -1,5 +1,6 @@
 import os
 import requests
+from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
 from season_config import require_target_season, season_marker, write_enabled
@@ -125,6 +126,9 @@ def scrape_and_update_standings():
                 'goals_for': goals_for,
                 'goals_against': goals_against,
                 'points': int(cols[10].text.strip()),
+                # Upserts do not invoke a database-side timestamp trigger.
+                # Record when this official source was last reconciled.
+                'updated_at': datetime.now(timezone.utc).isoformat(),
             }
             standings_data_to_upsert.append(data_row)
             
