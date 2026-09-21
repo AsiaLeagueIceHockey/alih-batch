@@ -1,8 +1,9 @@
-name: Popup Game Sheet Scraper (Manual Canary)
+name: Popup Game Sheet Scraper
 
 on:
-#  schedule:
-#    - cron: '*/20 * * * *'
+  # 12:00-23:40 KST only. The scraper itself limits writes to recent games.
+  schedule:
+    - cron: '*/20 3-14 * * *'
   
   workflow_dispatch:
     inputs:
@@ -49,11 +50,17 @@ jobs:
         run: npm ci
 
       - name: Parse requested official game sheets
-        run: node ./scrapeSingleGame.js --game-nos=${{ inputs.internal_game_nos }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            node ./scrapeSingleGame.js --game-nos="$INTERNAL_GAME_NOS"
+          else
+            node ./scrapeSingleGame.js
+          fi
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: ${{ inputs.target_season }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          ALLOW_GAME_SHEET_WRITE: ${{ inputs.allow_write }}
-          GAME_IDENTITY_CONTRACT_VERIFIED: ${{ inputs.identity_contract_verified }}
+          INTERNAL_GAME_NOS: ${{ inputs.internal_game_nos }}
+          TARGET_SEASON: ${{ github.event_name == 'schedule' && '2026-27' || inputs.target_season }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          ALLOW_GAME_SHEET_WRITE: ${{ github.event_name == 'schedule' && 'true' || inputs.allow_write }}
+          GAME_IDENTITY_CONTRACT_VERIFIED: ${{ github.event_name == 'schedule' && 'true' || inputs.identity_contract_verified }}
