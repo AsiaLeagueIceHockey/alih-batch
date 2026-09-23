@@ -1,7 +1,10 @@
 import os
+from datetime import datetime, timezone
+
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
+from player_records import reconcile_player_records
 from season_config import require_target_season, season_marker, write_enabled
 
 # 1. Supabase 설정
@@ -19,6 +22,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # 2. 팀 이름 매핑 (HTML의 팀명 -> DB의 english_name)
 # DB english_name: HL ANYANG, EAGLES, FREEBLADES, GRITS, ICEBUCKS, STARS
 HTML_TO_DB_TEAM_MAP = {
+    "HL ANYANG": "HL ANYANG",
     "HL ANYANG ICE HOCKEY CLUB": "HL ANYANG",
     "RED EAGLES HOKKAIDO": "EAGLES",
     "NIKKO ICEBUCKS": "ICEBUCKS",
@@ -54,8 +58,7 @@ def scrape_and_update_players():
         response.encoding = 'shift_jis' # 인코딩 설정 필수
         html = response.text
     except Exception as e:
-        print(f"Failed to fetch URL: {e}")
-        return
+        raise RuntimeError(f"Failed to fetch URL: {e}") from e
 
     soup = BeautifulSoup(html, 'html.parser')
     if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
@@ -64,7 +67,7 @@ def scrape_and_update_players():
     # DB 팀 정보 가져오기
     team_id_map = get_team_id_map()
     if not team_id_map:
-        return
+        raise RuntimeError("Failed to load all database teams")
 
     players_to_upsert = []
 
@@ -128,18 +131,42 @@ def scrape_and_update_players():
             except Exception as e:
                 raise RuntimeError(f"Error parsing player row: {e}") from e
 
-    # Supabase 저장
+    # Match the official rows to existing roster identities before any write.
     if len({player['team_id'] for player in players_to_upsert}) != 6:
         raise RuntimeError("Player source does not contain all six teams")
     if players_to_upsert:
-        if not WRITE_ENABLED:
-            print(f"[DRY RUN] Validated {len(players_to_upsert)} players for {TARGET_SEASON}")
-            return
-        print(f"Upserting {len(players_to_upsert)} players...")
         try:
-            # team_id와 name을 기준으로 업데이트 (unique constraints 필요)
-            result = supabase.table('alih_players').upsert(
-                players_to_upsert, 
+            roster_response = supabase.table('alih_players').select(
+                'team_id, jersey_number, name'
+            ).eq('season', TARGET_SEASON).execute()
+        except Exception as e:
+            raise RuntimeError(f"Failed to load {TARGET_SEASON} roster: {e}") from e
+
+        reconciled_updates, reconciliation_report = reconcile_player_records(
+            players_to_upsert,
+            roster_response.data or [],
+            TARGET_SEASON,
+        )
+        updated_at = datetime.now(timezone.utc).isoformat()
+        for update in reconciled_updates:
+            update["updated_at"] = updated_at
+        print(
+            "Roster reconciliation: "
+            f"matched={reconciliation_report['matched']} "
+            f"new={reconciliation_report['new']} "
+            f"missing_from_source={reconciliation_report['missing_from_source']}"
+        )
+        if reconciliation_report["new_names"]:
+            print(f"New official players: {reconciliation_report['new_names']}")
+        if reconciliation_report["missing_names"]:
+            print(f"Roster profiles absent from current records: {reconciliation_report['missing_names']}")
+        if not WRITE_ENABLED:
+            print(f"[DRY RUN] Validated {len(reconciled_updates)} roster-matched players for {TARGET_SEASON}")
+            return
+        print(f"Updating {len(reconciled_updates)} roster-matched players...")
+        try:
+            supabase.table('alih_players').upsert(
+                reconciled_updates,
                 on_conflict='season,team_id,name'
             ).execute()
             print("Success!")
@@ -187,8 +214,7 @@ def scrape_and_update_goalies():
         response.encoding = 'shift_jis'
         html = response.text
     except Exception as e:
-        print(f"Failed to fetch GK URL: {e}")
-        return
+        raise RuntimeError(f"Failed to fetch GK URL: {e}") from e
 
     soup = BeautifulSoup(html, 'html.parser')
     if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
@@ -196,7 +222,7 @@ def scrape_and_update_goalies():
     
     team_id_map = get_team_id_map()
     if not team_id_map:
-        return
+        raise RuntimeError("Failed to load all database teams")
 
     # (team_id, jersey_number) -> name 매핑 가져오기
     player_lookup = get_player_lookup_map(team_id_map)
@@ -232,19 +258,19 @@ def scrape_and_update_goalies():
             
             db_team_name = CODE_TO_DB_TEAM_MAP.get(team_code)
             if not db_team_name:
-                print(f"Unknown team code: {team_code}")
-                continue
+                raise RuntimeError(f"Unknown team code: {team_code}")
                 
             team_id = team_id_map.get(db_team_name)
             if not team_id:
-                continue
+                raise RuntimeError(f"Team missing from DB: {db_team_name}")
                 
             # 등번호로 기존 선수 이름 찾기
             db_name = player_lookup.get((team_id, jersey_number))
             
             if not db_name:
-                print(f"Warning: Goalie not found in regular player list: {name_raw} ({team_code} #{jersey_number})")
-                db_name = name_raw
+                raise RuntimeError(
+                    f"Goalie not found in season roster: {name_raw} ({team_code} #{jersey_number})"
+                )
 
             goalie_data = {
                 "season": TARGET_SEASON,

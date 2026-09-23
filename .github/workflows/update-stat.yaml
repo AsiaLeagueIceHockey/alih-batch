@@ -26,9 +26,14 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: update-player-stats-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   scrape-players:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
@@ -55,12 +60,12 @@ jobs:
         run: python scrape-stat.py
 
       - name: Run Players Scraper
-        if: ${{ inputs.run_individual_records }}
+        if: ${{ github.event_name == 'schedule' || inputs.run_individual_records }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: ${{ inputs.target_season || '2026-27' }}
+          TARGET_SEASON: ${{ github.event_name == 'schedule' && '2026-27' || inputs.target_season }}
           SOURCE_POPUP_ID: '49'
-          DRY_RUN: ${{ inputs.dry_run }}
-          ALLOW_WRITE: ${{ inputs.allow_write }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          ALLOW_WRITE: ${{ github.event_name == 'schedule' && 'true' || inputs.allow_write }}
         run: python scrape-players.py
