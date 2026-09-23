@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import requests
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
-from player_records import reconcile_player_records
+from player_records import reconcile_goalie_records, reconcile_player_records
 from season_config import require_target_season, season_marker, write_enabled
 
 # 1. Supabase 설정
@@ -185,7 +185,7 @@ CODE_TO_DB_TEAM_MAP = {
     "SKB": "STARS"
 }
 
-def get_player_lookup_map(team_id_map):
+def get_player_roster():
     """
     모든 선수를 가져와서 (team_id, jersey_number) -> name 매핑 생성
     GK 데이터에 이름이 다르게 표기될 경우(공백 등)를 대비해 등번호로 매칭
@@ -193,15 +193,10 @@ def get_player_lookup_map(team_id_map):
     try:
         # 필요한 필드만 조회
         response = supabase.table('alih_players').select('team_id, jersey_number, name').eq('season', TARGET_SEASON).execute()
-        player_map = {}
-        if response.data:
-            for p in response.data:
-                key = (p['team_id'], p['jersey_number'])
-                player_map[key] = p['name']
-        return player_map
+        return response.data or []
     except Exception as e:
         print(f"Error fetching player map: {e}")
-        return {}
+        raise RuntimeError(f"Failed to fetch player roster: {e}") from e
 
 def scrape_and_update_goalies():
     """골리 스탯 별도 스크래핑"""
@@ -224,8 +219,7 @@ def scrape_and_update_goalies():
     if not team_id_map:
         raise RuntimeError("Failed to load all database teams")
 
-    # (team_id, jersey_number) -> name 매핑 가져오기
-    player_lookup = get_player_lookup_map(team_id_map)
+    player_roster = get_player_roster()
     
     goalies_to_upsert = []
     
@@ -264,18 +258,10 @@ def scrape_and_update_goalies():
             if not team_id:
                 raise RuntimeError(f"Team missing from DB: {db_team_name}")
                 
-            # 등번호로 기존 선수 이름 찾기
-            db_name = player_lookup.get((team_id, jersey_number))
-            
-            if not db_name:
-                raise RuntimeError(
-                    f"Goalie not found in season roster: {name_raw} ({team_code} #{jersey_number})"
-                )
-
             goalie_data = {
-                "season": TARGET_SEASON,
                 "team_id": team_id,
-                "name": db_name, # 중요: DB에 있는 이름으로 업데이트해야 upsert가 됨
+                "jersey_number": jersey_number,
+                "name": name_raw,
                 
                 # GK Stats
                 "play_time": cols[5].text.strip(),
@@ -296,14 +282,28 @@ def scrape_and_update_goalies():
             raise RuntimeError(f"Error parsing goalie row: {e}") from e
 
     if goalies_to_upsert:
+        reconciled_goalies, goalie_report = reconcile_goalie_records(
+            goalies_to_upsert,
+            player_roster,
+            TARGET_SEASON,
+        )
+        updated_at = datetime.now(timezone.utc).isoformat()
+        for goalie in reconciled_goalies:
+            goalie["updated_at"] = updated_at
+        print(
+            "Goalie reconciliation: "
+            f"matched={goalie_report['matched']} new={goalie_report['new']}"
+        )
+        if goalie_report["new_names"]:
+            print(f"New official goalies: {goalie_report['new_names']}")
         if not WRITE_ENABLED:
-            print(f"[DRY RUN] Validated {len(goalies_to_upsert)} goalies for {TARGET_SEASON}")
+            print(f"[DRY RUN] Validated {len(reconciled_goalies)} goalies for {TARGET_SEASON}")
             return
-        print(f"Upserting {len(goalies_to_upsert)} goalies stats...")
+        print(f"Upserting {len(reconciled_goalies)} goalies stats...")
         try:
             # name과 team_id가 일치하는 행에 해당 컬럼들만 업데이트
             result = supabase.table('alih_players').upsert(
-                goalies_to_upsert, 
+                reconciled_goalies,
                 on_conflict='season,team_id,name'
             ).execute()
             print("GK Stats Success!")
