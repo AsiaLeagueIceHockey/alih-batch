@@ -47,7 +47,10 @@ def reconcile_player_records(source_records, roster_records, target_season):
             roster
             for roster in remaining_roster
             if roster["team_id"] == source["team_id"]
-            and canonical_player_name(roster["name"]) == canonical_player_name(source["name"])
+            and (
+                normalize_player_name(roster["name"]) == normalize_player_name(source["name"])
+                or canonical_player_name(roster["name"]) == canonical_player_name(source["name"])
+            )
         ]
         if len(candidates) > 1:
             raise RuntimeError(f"Ambiguous roster name match: {source['name']!r}")
@@ -81,6 +84,32 @@ def reconcile_player_records(source_records, roster_records, target_season):
         if similarity >= 0.9:
             matches[source_index] = candidates[0]
             remaining_roster.remove(candidates[0])
+
+    # Recovery fallback: a previous sparse upsert may have lost jersey numbers.
+    # Accept only one clearly best high-similarity name inside the same team.
+    unmatched_source_indexes = [index for index in range(len(source_records)) if index not in matches]
+    for source_index in unmatched_source_indexes:
+        source = source_records[source_index]
+        scored_candidates = [
+            (
+                SequenceMatcher(
+                    None,
+                    normalize_player_name(source["name"]),
+                    normalize_player_name(roster["name"]),
+                ).ratio(),
+                roster,
+            )
+            for roster in remaining_roster
+            if roster["team_id"] == source["team_id"]
+        ]
+        scored_candidates.sort(key=lambda candidate: candidate[0])
+        if not scored_candidates:
+            continue
+        best_score, best_roster = scored_candidates[-1]
+        second_score = scored_candidates[-2][0] if len(scored_candidates) > 1 else 0
+        if best_score >= 0.9 and best_score - second_score >= 0.05:
+            matches[source_index] = best_roster
+            remaining_roster.remove(best_roster)
 
     new_source_indexes = [index for index in range(len(source_records)) if index not in matches]
     if len(new_source_indexes) > 5 or len(remaining_roster) > 10:

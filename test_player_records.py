@@ -93,6 +93,22 @@ class PlayerRecordReconciliationTests(unittest.TestCase):
         self.assertEqual(report["matched"], 1)
         self.assertEqual(updates[0]["name"], "OHSAWA Yuto")
 
+    def test_matches_split_given_name_without_jersey(self):
+        source = [self._record(1, 31, "CHUN,Jong Hun")]
+        roster = [{"team_id": 1, "jersey_number": None, "name": "CHUN Jonghun"}]
+
+        updates, report = reconcile_player_records(source, roster, "2026-27")
+        self.assertEqual(report["matched"], 1)
+        self.assertEqual(updates[0]["name"], "CHUN Jonghun")
+
+    def test_matches_unique_high_similarity_name_without_jersey(self):
+        source = [self._record(4, 14, "OSAWA,Yuto")]
+        roster = [{"team_id": 4, "jersey_number": None, "name": "OHSAWA Yuto"}]
+
+        updates, report = reconcile_player_records(source, roster, "2026-27")
+        self.assertEqual(report["matched"], 1)
+        self.assertEqual(updates[0]["name"], "OHSAWA Yuto")
+
     def test_fails_closed_on_large_roster_drift(self):
         source = [self._record(1, number, f"New Player {number}") for number in range(1, 7)]
         roster = [{"team_id": 1, "jersey_number": 70, "name": "MORROW Joe"}]
