@@ -150,7 +150,10 @@ def reconcile_goalie_records(source_records, roster_records, target_season):
             roster
             for roster in roster_records
             if roster["team_id"] == source["team_id"]
-            and canonical_player_name(roster["name"]) == canonical_player_name(source["name"])
+            and (
+                normalize_player_name(roster["name"]) == normalize_player_name(source["name"])
+                or canonical_player_name(roster["name"]) == canonical_player_name(source["name"])
+            )
         ]
         if len(name_candidates) > 1:
             raise RuntimeError(f"Ambiguous goalie name match: {source['name']!r}")

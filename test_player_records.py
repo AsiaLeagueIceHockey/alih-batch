@@ -135,6 +135,26 @@ class PlayerRecordReconciliationTests(unittest.TestCase):
         self.assertEqual(updates[0]["position"], "G")
         self.assertEqual(updates[0]["jersey_number"], 33)
 
+    def test_matches_goalie_with_split_given_name(self):
+        source = [{
+            "team_id": 1,
+            "jersey_number": 31,
+            "name": "CHUN,Jong Hun",
+            "play_time": "60:00",
+            "shots_against": 30,
+            "goals_against": 2,
+            "saves": 28,
+            "save_pct": 93.33,
+            "goals_against_average": 2.0,
+            "gkc": 0.0,
+        }]
+        roster = [{"team_id": 1, "jersey_number": None, "name": "CHUN Jonghun"}]
+
+        updates, report = reconcile_goalie_records(source, roster, "2026-27")
+        self.assertEqual(report["matched"], 1)
+        self.assertEqual(report["new"], 0)
+        self.assertEqual(updates[0]["name"], "CHUN Jonghun")
+
     @staticmethod
     def _record(team_id, jersey_number, name):
         return {
