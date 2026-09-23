@@ -1,6 +1,6 @@
 import unittest
 
-from player_records import normalize_player_name, reconcile_player_records
+from player_records import normalize_player_name, reconcile_goalie_records, reconcile_player_records
 
 
 class PlayerRecordReconciliationTests(unittest.TestCase):
@@ -12,6 +12,7 @@ class PlayerRecordReconciliationTests(unittest.TestCase):
             "team_id": 1,
             "jersey_number": 70,
             "name": "MORROW, Joe",
+            "position": "D",
             "games_played": 3,
             "points": 3,
             "goals": 0,
@@ -29,6 +30,8 @@ class PlayerRecordReconciliationTests(unittest.TestCase):
                 "season": "2026-27",
                 "team_id": 1,
                 "name": "MORROW Joe",
+                "jersey_number": 70,
+                "position": "D",
                 "games_played": 3,
                 "points": 3,
                 "goals": 0,
@@ -61,6 +64,14 @@ class PlayerRecordReconciliationTests(unittest.TestCase):
         self.assertEqual(updates[1]["name"], "BAE,Sangho")
         self.assertEqual(updates[1]["jersey_number"], 18)
 
+    def test_updates_jersey_and_position_for_existing_player(self):
+        source = [self._record(3, 4, "TOKO,Yutaka")]
+        roster = [{"team_id": 3, "jersey_number": 44, "name": "TOKO Yutaka"}]
+
+        updates, _ = reconcile_player_records(source, roster, "2026-27")
+        self.assertEqual(updates[0]["jersey_number"], 4)
+        self.assertEqual(updates[0]["position"], "D")
+
     def test_allows_duplicate_source_jersey_when_names_match_roster(self):
         source = [
             self._record(6, 72, "ISHIDA,Seiya"),
@@ -88,6 +99,25 @@ class PlayerRecordReconciliationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "exceeds the guarded update threshold"):
             reconcile_player_records(source, roster, "2026-27")
+
+    def test_adds_a_guarded_new_goalie(self):
+        source = [{
+            "team_id": 3,
+            "jersey_number": 33,
+            "name": "ITO,Takayuki",
+            "play_time": "00:00",
+            "shots_against": 0,
+            "goals_against": 0,
+            "saves": 0,
+            "save_pct": 0.0,
+            "goals_against_average": 0.0,
+            "gkc": 0.0,
+        }]
+
+        updates, report = reconcile_goalie_records(source, [], "2026-27")
+        self.assertEqual(report["new_names"], ["ITO,Takayuki"])
+        self.assertEqual(updates[0]["position"], "G")
+        self.assertEqual(updates[0]["jersey_number"], 33)
 
     @staticmethod
     def _record(team_id, jersey_number, name):
