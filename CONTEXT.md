@@ -177,15 +177,17 @@ alih-batch/
 
 **목적**: YouTube 채널에서 경기 하이라이트 영상을 스크래핑하여 alih_schedule에 연결
 
-**데이터 소스**: `https://www.youtube.com/@ALhockey_JP/videos`
+**데이터 소스**:
+- `https://www.youtube.com/@ALhockey_JP/videos` (리그 공식)
+- `https://www.youtube.com/channel/UC-JEIp-IjHJJ8g3812Z7MUw/videos` (ON THE SPORTS, HL 안양 홈 경기 보완)
 
-**실행 주기**: 매시 30분 (GitHub Actions: `update-highlights.yaml`)
+**실행 주기**: 매일 KST 18:45, 20:45, 22:45 (GitHub Actions: `update-highlights.yaml`)
 
 **주요 기능**:
 1. `yt-dlp`로 YouTube 채널에서 최근 영상 목록 가져오기
-2. 영상 제목 파싱: `【YYYY.MM.DD】Team A vs Team B | Asia League Highlights |`
+2. 영상 제목 파싱: 공식 `【YYYY.MM.DD】...` 형식과 ON THE SPORTS의 한국어/영문 날짜 형식
 3. `alih_schedule`에서 날짜+팀 조합으로 경기 매칭
-4. 일본어 제목을 한국어로 번역 (deep-translator)
+4. 경기별 중복 영상은 기본 하이라이트를 `전 득점` 파생 영상보다 우선
 5. `highlight_url`, `highlight_title` 필드 업데이트
 
 **YouTube 팀명 매핑**:
@@ -305,7 +307,7 @@ alih-batch/
 | `parse-gamesheet.yaml` | 20분 간격 | `scrapeSingleGame.js` | Node.js 20 |
 | `update-standings.yaml` | 30분 간격 | `scrape-standings.py` | Python 3.10 |
 | `update-stat.yaml` | 매시 정각 | `scrape-stat.py`, `scrape-players.py` | Python 3.10 |
-| `update-highlights.yaml` | 매시 30분 | `scrape-highlights.py` | Python 3.10 + yt-dlp |
+| `update-highlights.yaml` | KST 18:45, 20:45, 22:45 | `scrape-highlights.py` | Python 3.10 + yt-dlp |
 | `x-content.yaml` | 일요일/목요일 20:00 KST | `x_content.py` | Python 3.10 + Groq |
 | `update-live-url.yaml` | 15분 간격 | `update-live-url.py` | Python 3.10 + yt-dlp |
 

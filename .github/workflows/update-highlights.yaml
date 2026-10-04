@@ -6,6 +6,11 @@ on:
   
   workflow_dispatch:
     inputs:
+      target_season:
+        description: Explicit target season
+        required: true
+        default: '2026-27'
+        type: string
       dry_run:
         description: Validate matches without writing highlight URLs
         required: true
@@ -17,9 +22,14 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: update-youtube-highlights
+  cancel-in-progress: false
+
 jobs:
   scrape-highlights:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       # 1. 리포지토리 코드 체크아웃
@@ -38,12 +48,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install supabase yt-dlp
 
+      - name: Run highlight parser regression tests
+        run: python -m unittest test_highlight_parser.py
+
       # 4. 스크래핑 스크립트 실행
       - name: Run highlights scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          TARGET_SEASON: '2026-27'
-          DRY_RUN: ${{ inputs.dry_run }}
-          ALLOW_WRITE: ${{ inputs.allow_write }}
+          TARGET_SEASON: ${{ github.event_name == 'schedule' && '2026-27' || inputs.target_season }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          ALLOW_WRITE: ${{ github.event_name == 'schedule' && 'true' || inputs.allow_write }}
         run: python scrape-highlights.py
