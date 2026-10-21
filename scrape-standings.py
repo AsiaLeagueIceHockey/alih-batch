@@ -1,9 +1,9 @@
 import os
 import requests
 from datetime import datetime, timezone
-from bs4 import BeautifulSoup
 from supabase import create_client, Client
-from season_config import require_target_season, season_marker, write_enabled
+from season_config import require_target_season, write_enabled
+from standings_parser import parse_standings_html
 
 # 1. Supabase 클라이언트 초기화
 # GitHub Actions Secrets에서 환경 변수를 가져옵니다.
@@ -17,18 +17,6 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise EnvironmentError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# 2. 팀 이름 매핑
-# HTML의 팀 이름과 DB('alih_teams')의 'english_name'을 매핑합니다.
-# DB english_name: HL ANYANG, EAGLES, FREEBLADES, GRITS, ICEBUCKS, STARS
-HTML_TO_DB_TEAM_MAP = {
-    "HL ANYANG ICE HOCKEY CLUB": "HL ANYANG",
-    "RED EAGLES HOKKAIDO": "EAGLES",
-    "NIKKO ICEBUCKS": "ICEBUCKS",
-    "YOKOHAMA GRITS": "GRITS",
-    "TOHOKU FREEBLADES": "FREEBLADES",
-    "STARS KOBE": "STARS"
-}
 
 def get_team_id_map():
     """
@@ -57,113 +45,36 @@ def scrape_and_update_standings():
         response.encoding = 'shift_jis'
         html_content = response.text
     except requests.RequestException as e:
-        print(f"Error fetching URL: {e}")
-        return
+        raise RuntimeError(f"Error fetching official standings: {e}") from e
 
-    soup = BeautifulSoup(html_content, 'html.parser')
-    if season_marker(TARGET_SEASON) not in soup.title.get_text(" ", strip=True):
-        raise RuntimeError(f"Source does not identify {TARGET_SEASON}: {soup.title.get_text(' ', strip=True)}")
-
-    # 'RK'라는 텍스트를 가진 <th> 태그를 찾아 해당 테이블을 특정합니다.
-    rk_header = soup.find('th', string='RK')
-    if not rk_header:
-        print("Error: Could not find standings table (RK header not found).")
-        return
-
-    standings_table = rk_header.find_parent('table')
-    
     # DB의 팀 ID 맵 가져오기
     team_id_map = get_team_id_map()
     if team_id_map is None:
-        print("Aborting due to error in fetching team map.")
+        raise RuntimeError("Could not fetch the alih_teams identity map")
+
+    standings_data_to_upsert = parse_standings_html(
+        html_content,
+        TARGET_SEASON,
+        team_id_map,
+        datetime.now(timezone.utc).isoformat(),
+    )
+
+    if not WRITE_ENABLED:
+        print(f"[DRY RUN] Validated {len(standings_data_to_upsert)} official active-team standings rows for {TARGET_SEASON}")
         return
+    print(f"Upserting {len(standings_data_to_upsert)} rows to 'alih_standings'...")
+    try:
+        response = supabase.table('alih_standings').upsert(
+            standings_data_to_upsert,
+            on_conflict='team_id,season'
+        ).execute()
 
-    standings_data_to_upsert = []
-    
-    # 테이블의 모든 <tr>(행)을 순회 (헤더 제외)
-    # HTML에 <tbody>가 없으므로 <table> 바로 아래 <tr>을 찾습니다.
-    for row in standings_table.find_all('tr'):
-        if row.find('th'):  # 헤더 행(<th>가 있는 행) 건너뛰기
-            continue
-
-        cols = row.find_all('td')
-        if not cols or len(cols) < 11: # 유효한 데이터 행인지 확인
-            continue
-            
-        try:
-            # 1. HTML에서 팀 이름 파싱
-            html_team_name = cols[1].text.strip()
-            
-            # 2. DB 'english_name'으로 변환
-            db_team_name = HTML_TO_DB_TEAM_MAP.get(html_team_name)
-            if not db_team_name:
-                print(f"Warning: No DB mapping for team '{html_team_name}'. Skipping.")
-                continue
-                
-            # 3. 'team_id' 조회
-            team_id = team_id_map.get(db_team_name)
-            if not team_id:
-                print(f"Warning: No team_id found for '{db_team_name}' in 'alih_teams'. Skipping.")
-                continue
-
-            # 4. GF - GA (골득실) 파싱
-            gf_ga = cols[9].text.strip().split(' - ')
-            goals_for = int(gf_ga[0])
-            goals_against = int(gf_ga[1])
-
-            # 5. Supabase에 저장할 데이터 객체 생성
-            data_row = {
-                'season': TARGET_SEASON,
-                'team_id': team_id,
-                'rank': int(cols[0].text.strip()),
-                'games_played': int(cols[2].text.strip()),
-                'win_60min': int(cols[3].text.strip()),
-                'win_ot': int(cols[4].text.strip()),
-                'win_pss': int(cols[5].text.strip()),
-                'lose_pss': int(cols[6].text.strip()),
-                'lose_ot': int(cols[7].text.strip()),
-                'lose_60min': int(cols[8].text.strip()),
-                'goals_for': goals_for,
-                'goals_against': goals_against,
-                'points': int(cols[10].text.strip()),
-                # Upserts do not invoke a database-side timestamp trigger.
-                # Record when this official source was last reconciled.
-                'updated_at': datetime.now(timezone.utc).isoformat(),
-            }
-            standings_data_to_upsert.append(data_row)
-            
-        except Exception as e:
-            raise RuntimeError(f"Error parsing standings row: {e} | {row.text.strip()}") from e
-
-    # 6. 데이터 일괄 업서트(Upsert)
-    # The league only lists teams that have played at least one game early in
-    # the season. Preserve the pre-seeded zero-game rows for the others instead
-    # of treating that authoritative partial table as a parser failure.
-    if not 2 <= len(standings_data_to_upsert) <= 6 or len({row['team_id'] for row in standings_data_to_upsert}) != len(standings_data_to_upsert):
-        raise RuntimeError(f"Expected two to six uniquely mapped active teams, received {len(standings_data_to_upsert)}")
-
-    if standings_data_to_upsert:
-        if not WRITE_ENABLED:
-            print(f"[DRY RUN] Validated {len(standings_data_to_upsert)} official active-team standings rows for {TARGET_SEASON}")
-            return
-        print(f"Upserting {len(standings_data_to_upsert)} rows to 'alih_standings'...")
-        try:
-            # 'on_conflict'는 1번 단계에서 설정한 UNIQUE 제약조건(team_id)을 기준으로 합니다.
-            response = supabase.table('alih_standings').upsert(
-                standings_data_to_upsert,
-                on_conflict='team_id,season'
-            ).execute()
-            
-            print("Upsert complete.")
-            if hasattr(response, 'error') and response.error:
-                print(f"Supabase Error: {response.error}")
-            else:
-                print(f"Successfully upserted {len(response.data)} records.")
-
-        except Exception as e:
-            raise RuntimeError(f"Error during Supabase upsert: {e}") from e
-    else:
-        raise RuntimeError("No standings data parsed")
+        print("Upsert complete.")
+        if hasattr(response, 'error') and response.error:
+            raise RuntimeError(f"Supabase error: {response.error}")
+        print(f"Successfully upserted {len(response.data)} records.")
+    except Exception as e:
+        raise RuntimeError(f"Error during Supabase upsert: {e}") from e
 
 if __name__ == "__main__":
     scrape_and_update_standings()
