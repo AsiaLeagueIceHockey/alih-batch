@@ -43,6 +43,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 supabase
 
+      - name: Test standings parser
+        run: python -m unittest discover -s test -p 'test_standings_parser.py'
+
       # 4. 스크래핑 스크립트 실행
       - name: Run scrape script
         env:
